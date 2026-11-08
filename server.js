@@ -60,7 +60,8 @@ const migrations = [
     "CREATE TABLE IF NOT EXISTS zap_location_aliases (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, owner_user_id BIGINT UNSIGNED NOT NULL, place_id VARCHAR(255) NULL, custom_name VARCHAR(255) NOT NULL, address VARCHAR(600) NOT NULL, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_alias_owner_place (owner_user_id,place_id), KEY idx_alias_name (custom_name(100))) ENGINE=InnoDB"
    ]] ,
   [8, ["ALTER TABLE app_users MODIFY COLUMN role ENUM('motorista','transportadora','administrador') NOT NULL DEFAULT 'motorista'"]],
-  [9, ["ALTER TABLE zap_order_entries ADD COLUMN closes_at TIME NULL"]] 
+  [9, ["ALTER TABLE zap_order_entries ADD COLUMN closes_at TIME NULL"]],
+  [10, ["ALTER TABLE zap_order_entries ADD COLUMN driver_id BIGINT UNSIGNED NULL", "ALTER TABLE zap_order_entries ADD INDEX idx_zap_order_driver (driver_id)"]] 
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
