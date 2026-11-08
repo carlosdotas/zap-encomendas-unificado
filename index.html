@@ -914,7 +914,8 @@ function CarrierDashboard({onBack}){
  function openClientRegistration(){setNewClient({name:clientQuery.trim(),phone:''});setClientError('');setClientSuggestions(false);setClientDialog(true)}
  function registerClient(e){e.preventDefault();const name=newClient.name.trim(),phone=phoneDigits(newClient.phone);if(name.length<2){setClientError('Informe o nome do cliente.');return}if(phone.length<10||phone.length>11){setClientError('Informe um telefone válido com DDD.');return}if(clients.some(c=>normalizeClient(c.name)===normalizeClient(name))){setClientError('Já existe um cliente com esse nome. Selecione-o na busca.');return}const item={id:Date.now(),name,phone:formatClientPhone(phone)};setClients(prev=>{const next=[...prev,item];try{localStorage.setItem('zap_carrier_clients',JSON.stringify(next))}catch{}return next});selectClient(item);setClientDialog(false);setClientError('')}
 
- const [orders,setOrders]=useState(()=>{try{return JSON.parse(localStorage.getItem('zap_carrier_orders')||'[]')}catch{return []}});
+ const [orders,setOrders]=useState([]),[savingOrder,setSavingOrder]=useState(false);
+ useEffect(()=>{let active=true;fetch('/api/orders',{credentials:'same-origin'}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Falha ao carregar pedidos');return d}).then(d=>{if(active)setOrders(d.orders||[])}).catch(err=>{if(active)setMessage(err.message)});return()=>{active=false}},[]);
  const [viewOrder,setViewOrder]=useState(null),[editingOrderId,setEditingOrderId]=useState(null),[carrierMenu,setCarrierMenu]=useState(false),[carrierProfile,setCarrierProfile]=useState(false),[placesDialog,setPlacesDialog]=useState(false),[placesFilter,setPlacesFilter]=useState(''),[carrierGps,setCarrierGps]=useState(null);
  const carrierGpsMarker=useRef(null);
  const [gpsRequestState,setGpsRequestState]=useState('initial');
@@ -1023,14 +1024,22 @@ function CarrierDashboard({onBack}){
       map.panBy([0,Math.round(height/2-targetY)],{animate:false});
     }));}}
  async function search(e){e.preventDefault();if(query.trim().length<3)return;setSearching(true);setResults([]);setMessage('');try{const response=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=br&q='+encodeURIComponent(query));if(!response.ok)throw Error('Serviço indisponível');const found=await response.json();setResults(found);if(found.length&&document.activeElement?.tagName==='INPUT')document.activeElement.blur();if(!found.length)setMessage('Nenhum local encontrado. Tente incluir cidade e estado.')}catch{setMessage('Não foi possível buscar agora. Escolha um local de demonstração abaixo.')}finally{setSearching(false)}}
- function submit(e){
+ async function submit(e){
   if(e&&e.preventDefault)e.preventDefault();
+  if(savingOrder)return;
   if(!selected){setMessage('Selecione um local antes de cadastrar.');return}
   const lat=Number(selected.lat),lng=Number(selected.lon??selected.lng);
   if(!Number.isFinite(lat)||!Number.isFinite(lng)){setMessage('Este local não tem coordenadas válidas. Selecione outro endereço.');return}
   if(!form.client){setMessage('Selecione ou cadastre um cliente antes de continuar.');setClientSuggestions(true);return}
   const order={id:editingOrderId||Date.now()+'-'+Math.random().toString(36).slice(2,7),place:selected.name||selected.place||selected.display_name?.split(',')[0]||'Local selecionado',address:selected.display_name||selected.place||'',lat,lng,...form,carrier:'Zap Encomendas',client:form.client,status:'Aguardando motorista'};
-  setOrders(previous=>{const next=editingOrderId?previous.map(item=>String(item.id)===String(editingOrderId)?order:item):[order,...previous];try{localStorage.setItem('zap_carrier_orders',JSON.stringify(next))}catch{}return next});
+  setSavingOrder(true);
+  try {
+   const response=await fetch(editingOrderId?'/api/orders/'+encodeURIComponent(editingOrderId):'/api/orders',{method:editingOrderId?'PUT':'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(order)});
+   const data=await response.json();
+   if(!response.ok)throw Error([data.error,data.code,data.hint||data.diagnostic?.hint].filter(Boolean).join(' — '));
+   setOrders(previous=>editingOrderId?previous.map(item=>String(item.id)===String(editingOrderId)?data.order:item):[data.order,...previous]);
+  } catch(err) {setMessage(err.message||'Não foi possível salvar o pedido.');return}
+  finally {setSavingOrder(false)}
   setSelected(null);setEditingOrderId(null);setViewOrder(null);setResults([]);setQuery('');
   setMessage(editingOrderId?'Pedido atualizado no mapa.':'Pedido cadastrado! Marcador adicionado ao mapa.');
   if(pinRef.current){pinRef.current.remove();pinRef.current=null}
