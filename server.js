@@ -193,7 +193,16 @@ function setSessionCookie(req,res,token,maxAge) {
   const secure = req.socket.encrypted || req.headers['x-forwarded-proto']==='https';
   res.setHeader('Set-Cookie','zap_session='+token+'; Path=/; HttpOnly; SameSite=Lax; Max-Age='+maxAge+(secure?'; Secure':''));
 }
+
+function masterConfig(){const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');const password=process.env.MASTER_AUTH_PASSWORD||'';const secret=process.env.MASTER_AUTH_SECRET||'';return phone.length>=10&&password.length>=6&&Buffer.byteLength(secret)>=32?{phone,password,secret}:null;}
+function masterIdentity(role){return {id:'master',full_name:'Administrador mestre',phone:process.env.MASTER_AUTH_PHONE||'',role,vehicles:'moto,carro,utilitario',isMaster:true};}
+function masterSession(req){const config=masterConfig();if(!config)return null;const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('zap_master='));if(!cookie)return null;const parts=cookie.slice(11).split('.');if(parts.length!==2)return null;const expected=crypto.createHmac('sha256',config.secret).update(parts[0]).digest();let provided;try{provided=Buffer.from(parts[1],'base64url')}catch{return null}if(provided.length!==expected.length||!crypto.timingSafeEqual(provided,expected))return null;let data;try{data=JSON.parse(Buffer.from(parts[0],'base64url').toString())}catch{return null}if(!['motorista','transportadora'].includes(data.role)||!Number.isFinite(data.exp)||data.exp<Date.now())return null;return masterIdentity(data.role);}
+function setMasterCookie(req,res,role){const config=masterConfig();const payload=Buffer.from(JSON.stringify({role,exp:Date.now()+28800000,nonce:crypto.randomBytes(12).toString('hex')})).toString('base64url');const sig=crypto.createHmac('sha256',config.secret).update(payload).digest('base64url');const secure=req.socket.encrypted||req.headers['x-forwarded-proto']==='https';res.setHeader('Set-Cookie','zap_master='+payload+'.'+sig+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800'+(secure?'; Secure':''));}
+function clearMasterCookie(req,res){const secure=req.socket.encrypted||req.headers['x-forwarded-proto']==='https';res.setHeader('Set-Cookie','zap_master=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'+(secure?'; Secure':''));}
+function secureTextMatch(a,b){return crypto.timingSafeEqual(crypto.createHash('sha256').update(String(a)).digest(),crypto.createHash('sha256').update(String(b)).digest());}
+
 async function getSession(req) {
+  const master=masterSession(req);if(master)return master;
   if(!pool || !databaseStatus.ok) return null;
   const cookie=String(req.headers.cookie || '').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
   if(!cookie) return null;
@@ -202,7 +211,7 @@ async function getSession(req) {
   return rows[0] || null;
 }
 function publicUser(user) {
-  return {id:user.id,name:user.full_name,phone:user.phone,role:user.role,vehicles:(user.vehicles || '').split(',').filter(Boolean)};
+  return {id:user.id,name:user.full_name,phone:user.phone,role:user.role,vehicles:(user.vehicles || '').split(',').filter(Boolean),...(user.isMaster?{isMaster:true}:{})};
 }
 async function loginSession(req,res,user) {
   const token=crypto.randomBytes(32).toString('hex');
@@ -224,17 +233,24 @@ async function authRoutes(req,res,path) {
     const host=String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
     if(!originHost || originHost!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}
   }
-  if(!pool || !databaseStatus.ok || migrationStatus!=='atualizado') await ensureDatabase();
-  if(!pool || !databaseStatus.ok || migrationStatus!=='atualizado') {sendJson(res,503,{error:'Banco de dados indisponível',diagnostic:databaseDiagnostics()});return true;}
   if(rateLimit(req,path)) {sendJson(res,429,{error:'Muitas tentativas. Aguarde 15 minutos.'});return true;}
   let body;
   try {body=await readBody(req)} catch(err) {sendJson(res,400,{error:'Corpo da requisição inválido.'});return true;}
   if(path==='/api/auth/logout') {
+    if(masterSession(req)){clearMasterCookie(req,res);setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;}
+    if(!pool||!databaseStatus.ok)await ensureDatabase();
+    if(!pool||!databaseStatus.ok){setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;}
     const match=String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
     if(match) await pool.execute('DELETE FROM zap_login_sessions WHERE token_hash=?',[crypto.createHash('sha256').update(match[1]).digest('hex')]);
     setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;
   }
   const phone=phoneDigits(body.phone), password=body.password;
+  const master=masterConfig();
+  if(path==='/api/auth/login'&&master&&secureTextMatch(phone,master.phone)&&secureTextMatch(password,master.password)){
+    const role=body.role==='transportadora'?'transportadora':'motorista';setMasterCookie(req,res,role);sendJson(res,200,{ok:true,user:publicUser(masterIdentity(role))});return true;
+  }
+  if(!pool||!databaseStatus.ok||migrationStatus!=='atualizado')await ensureDatabase();
+  if(!pool||!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco de dados indisponível',diagnostic:databaseDiagnostics()});return true;}
   if(!/^\d{10,11}$/.test(phone) || typeof password!=='string' || password.length<10 || Buffer.byteLength(password)>256) {
     sendJson(res,400,{error:'Informe telefone com DDD e senha de pelo menos 10 caracteres.'});return true;
   }
