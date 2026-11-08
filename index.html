@@ -860,7 +860,7 @@ useEffect(()=>{
  let active=true;
  async function refreshOrders(){
   try{
-   const response=await fetch('/api/orders',{credentials:'same-origin',cache:'no-store'});
+   const response=await fetch('/api/driver/orders',{credentials:'same-origin',cache:'no-store'});
    const data=await response.json();
    if(!response.ok)throw Error(data.error||'Não foi possível carregar pedidos');
    if(active){const next=(data.orders||[]).filter(o=>o.status==='aceito'&&String(o.driverId)===String(profile.id)&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lng))).map(o=>({...o,lat:Number(o.lat),lng:Number(o.lng),requestId:String(o.id),closesAt:o.closesAt||''}));setRegisteredRequests(previous=>JSON.stringify(previous)===JSON.stringify(next)?previous:next);}
