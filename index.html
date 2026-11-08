@@ -544,11 +544,11 @@
 .carrier-config-drag{display:flex;justify-content:center;align-items:center;height:19px;cursor:grab;touch-action:pan-x;margin:-7px -8px 1px;padding:5px}.carrier-config-drag span{display:block;width:44px;height:5px;border-radius:9px;background:#a8b7c4}
 
 /* Identificação dos resultados diretamente no mapa */
-.zap-map-place-tooltip.leaflet-tooltip{background:#fff;border:1px solid #d8e1e9;border-radius:10px;padding:7px 10px;box-shadow:0 3px 12px #102b422b;max-width:250px;white-space:normal;pointer-events:none}
+.zap-map-place-tooltip.leaflet-tooltip{background:#fff;border:1px solid #d8e1e9;border-radius:10px;padding:7px 10px;box-shadow:0 3px 12px #102b422b;width:max-content;max-width:min(220px,65vw);white-space:normal;pointer-events:none;box-sizing:border-box;z-index:650}
 .zap-map-place-tooltip.leaflet-tooltip:before{border-top-color:#fff}
-.zap-map-place-label{display:flex;flex-direction:column;gap:3px;max-width:230px;text-align:left}
+.zap-map-place-label{display:flex;flex-direction:column;gap:3px;max-width:200px;text-align:left;min-width:0}
 .zap-map-place-label strong{font-size:12px;line-height:1.3;color:#183950;overflow-wrap:anywhere}
-.zap-map-place-label small{font-size:10px;line-height:1.35;color:#536b7c;overflow-wrap:anywhere}
+.zap-map-place-label small{display:block;font-size:10px;line-height:1.35;color:#536b7c;overflow-wrap:anywhere}
 </style>
 <style>
 .job-modal-backdrop{position:fixed;inset:0;background:rgba(12,29,46,.52);z-index:5000;display:flex;align-items:flex-end;justify-content:center;padding:0 12px 12px;box-sizing:border-box}.job-modal{width:min(100%,480px);max-height:calc(100dvh - 20px);overflow:auto;background:#fff;border-radius:22px;padding:12px 18px 18px;box-shadow:0 15px 55px #102c4459;font-family:Arial,sans-serif;color:#193b59;box-sizing:border-box}.job-modal-handle{height:5px;width:42px;background:#cbd6df;border-radius:8px;margin:0 auto 16px}.job-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.job-modal-head h2{font-size:21px;margin:5px 0 5px}.job-modal-head p{font-size:13px;color:#62788b;margin:0 0 14px}.job-modal-kicker{font-size:10px;letter-spacing:1.1px;font-weight:800;color:#ed7919}.job-modal-close{border:0;background:#eef3f7;border-radius:50%;width:35px;height:35px;display:grid;place-items:center;flex-shrink:0;color:#193b59}.job-modal-close svg{width:18px;height:18px}.job-modal-info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.job-modal-info>div{background:#f2f6fa;border:1px solid #e4edf4;border-radius:12px;padding:11px 12px;min-width:0}.job-modal-info small{display:block;color:#698093;font-size:11px;margin-bottom:5px}.job-modal-info strong{display:block;font-size:14px;overflow-wrap:anywhere}.job-modal-hint{font-size:11px;color:#778b9b;margin:10px 0 14px}.job-modal-done{background:#e7f6ed;color:#176b42;border-radius:9px;padding:10px;font-size:12px}.job-modal-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.25fr);gap:6px}.job-modal-actions button{min-width:0;min-height:46px;padding:7px 4px;line-height:1.15;white-space:normal;border-radius:11px;border:1px solid #d5e2ec;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}.job-modal-actions svg{width:17px;height:17px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.job-action-primary{background:#f58220;color:white;border-color:#f58220!important}.job-action-nav{background:#193b59;color:white;border-color:#193b59!important}.job-action-contact{grid-column:auto;background:#eef7f1;color:#187349}.job-div-icon{cursor:pointer}@media(max-width:370px){.job-modal{padding:12px}.job-modal-actions{gap:4px}.job-modal-actions button{font-size:11px;padding:6px 2px;gap:3px}.job-modal-actions svg{width:13px;height:13px}}
@@ -969,13 +969,14 @@ function CarrierDashboard({onBack}){
   results.forEach((place,index)=>{
    const lat=Number(place.lat),lng=Number(place.lon??place.lng);
    if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
-   const shortName=String(place.name||place.display_name||'Local').split(',')[0];
+   const fullAddress=String(place.display_name||place.address||'').trim();
+   const shortName=String(place.name||fullAddress.split(',')[0]||'Local').trim();
+   const address=fullAddress.toLocaleLowerCase('pt-BR').startsWith(shortName.toLocaleLowerCase('pt-BR')+',')?fullAddress.slice(shortName.length+1).trim():fullAddress===shortName?'':fullAddress;
    const pin=L.divIcon({className:'zap-search-result-icon',html:'<span>'+String(index+1)+'</span>',iconSize:[36,44],iconAnchor:[18,42]});
    const marker=L.marker([lat,lng],{icon:pin,zIndexOffset:1100,title:shortName,keyboard:true});
    marker.on('click',()=>choose(place));
-   const address=String(place.display_name||place.address||'').trim();
-   const tooltipHtml='<div class="zap-map-place-label"><strong>'+safeText(shortName)+'</strong><small>'+safeText(address&&address!==shortName?address:'Endereço não informado')+'</small></div>';
-   marker.bindTooltip(tooltipHtml,{direction:'top',offset:[0,-38],opacity:1,permanent:true,interactive:false,className:'zap-map-place-tooltip'});
+   const tooltipHtml='<div class="zap-map-place-label"><strong>'+safeText(shortName)+'</strong>'+(address?'<small>'+safeText(address)+'</small>':'')+'</div>';
+   marker.bindTooltip(tooltipHtml,{direction:'top',offset:[0,-12],opacity:1,permanent:true,interactive:false,className:'zap-map-place-tooltip'});
    marker.addTo(layer);bounds.push([lat,lng]);
   });
   if(bounds.length){
