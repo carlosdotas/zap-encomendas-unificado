@@ -26,6 +26,9 @@ const DB_CONFIG = {
 let pool = null;
 let databaseStatus = { ok: false, message: 'Aguardando configuração MySQL', checkedAt: null };
 let migrationStatus = 'pendente';
+let lastDatabaseError = null;
+let lastAttemptAt = 0;
+let connectionTask = null;
 
 const migrations = [
   [1, [
@@ -44,9 +47,11 @@ const migrations = [
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
 async function connectAndMigrate() {
+  lastAttemptAt = Date.now();
   if (!configured()) {
     databaseStatus = {ok:false, message:'Configure DB_USER e DB_NAME nas variáveis de ambiente', checkedAt:new Date().toISOString()};
     migrationStatus = 'aguardando_configuracao';
+    lastDatabaseError = !DB_CONFIG.user ? 'DB_USER_AUSENTE' : 'DB_NAME_AUSENTE';
     return;
   }
   try {
@@ -63,12 +68,31 @@ async function connectAndMigrate() {
     await pool.query("INSERT INTO carriers (id,name) VALUES (1,'Zap Encomendas') ON DUPLICATE KEY UPDATE id=id");
     databaseStatus = {ok:true, message:'MySQL conectado e estrutura verificada', checkedAt:new Date().toISOString()};
     migrationStatus = 'atualizado';
+    lastDatabaseError = null;
   } catch (err) {
     databaseStatus = {ok:false, message:'Falha na conexão ou migração do MySQL', checkedAt:new Date().toISOString()};
     migrationStatus = 'erro';
-    console.error('[MYSQL]', err.message);
+    lastDatabaseError = String(err.code || 'ERRO_DESCONHECIDO').slice(0,60);
+    console.error('[MYSQL]', err.code || 'ERROR', err.message);
   }
 }
+
+function ensureDatabase(force=false) {
+  if(connectionTask) return connectionTask;
+  if(!force && databaseStatus.ok && migrationStatus==='atualizado') return Promise.resolve();
+  if(!force && Date.now()-lastAttemptAt < 10000) return Promise.resolve();
+  connectionTask=connectAndMigrate().finally(()=>{connectionTask=null});
+  return connectionTask;
+}
+function databaseDiagnostics() {
+  return {
+    configured:configured(),
+    environment:{DB_HOST:Boolean(process.env.DB_HOST),DB_PORT:Boolean(process.env.DB_PORT),DB_NAME:Boolean(process.env.DB_NAME),DB_USER:Boolean(process.env.DB_USER),DB_PASSWORD:Boolean(process.env.DB_PASSWORD)},
+    code:lastDatabaseError,
+    hint:!configured()?'Defina DB_NAME e DB_USER nas variáveis de ambiente da hospedagem.':lastDatabaseError==='ECONNREFUSED'?'O endereço/porta do MySQL recusou a conexão. DB_HOST=127.0.0.1 só funciona se o banco estiver no mesmo servidor.':lastDatabaseError==='ENOTFOUND'?'DB_HOST não foi encontrado no DNS.':lastDatabaseError==='ETIMEDOUT'?'MySQL não respondeu. Confira host, porta e acesso remoto.':lastDatabaseError==='ER_ACCESS_DENIED_ERROR'?'Usuário ou senha MySQL incorretos ou sem permissão.':lastDatabaseError==='ER_BAD_DB_ERROR'?'O banco DB_NAME não existe; crie-o no painel.':lastDatabaseError==='ER_DBACCESS_DENIED_ERROR'?'Usuário MySQL não tem permissão neste banco.':lastDatabaseError==='ER_TABLEACCESS_DENIED_ERROR'?'Usuário MySQL não tem permissão para criar ou acessar tabelas.':'Confira a configuração do MySQL e os logs do servidor.'
+  };
+}
+
 function sendJson(res, code, data) {
   res.writeHead(code, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
   res.end(JSON.stringify(data));
@@ -151,7 +175,8 @@ async function authRoutes(req,res,path) {
     const host=String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
     if(!originHost || originHost!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}
   }
-  if(!pool || !databaseStatus.ok || migrationStatus!=='atualizado') {sendJson(res,503,{error:'Banco de dados indisponível'});return true;}
+  if(!pool || !databaseStatus.ok || migrationStatus!=='atualizado') await ensureDatabase();
+  if(!pool || !databaseStatus.ok || migrationStatus!=='atualizado') {sendJson(res,503,{error:'Banco de dados indisponível',diagnostic:databaseDiagnostics()});return true;}
   if(rateLimit(req,path)) {sendJson(res,429,{error:'Muitas tentativas. Aguarde 15 minutos.'});return true;}
   const body=await readBody(req);
   if(path==='/api/auth/logout') {
@@ -210,18 +235,18 @@ const server = http.createServer(async (req,res) => {
     return;
   }
   if (req.method === 'GET' && path === '/health') {
-    if (pool) {
-      try {
-        await pool.query('SELECT 1');
-        databaseStatus = {ok:true,message:'MySQL conectado e respondendo',checkedAt:new Date().toISOString()};
-      } catch (err) {
-        databaseStatus = {ok:false,message:'MySQL não está respondendo',checkedAt:new Date().toISOString()};
+    await ensureDatabase();
+    if (pool && databaseStatus.ok) {
+      try {await pool.query('SELECT 1')} catch(err) {
+        databaseStatus={ok:false,message:'MySQL não está respondendo',checkedAt:new Date().toISOString()};
+        lastDatabaseError=String(err.code||'ERRO_DESCONHECIDO');
         console.error('[HEALTH]',err.message);
       }
     }
-    sendJson(res, databaseStatus.ok ? 200 : 503, {
-      app:'Zap Encomendas', node:'online', database:databaseStatus.ok ? 'online':'offline',
-      migrations:migrationStatus, checkedAt:databaseStatus.checkedAt
+    sendJson(res,databaseStatus.ok?200:503,{
+      app:'Zap Encomendas',node:'online',database:databaseStatus.ok?'online':'offline',
+      migrations:migrationStatus,checkedAt:databaseStatus.checkedAt,
+      ...(!databaseStatus.ok?{diagnostic:databaseDiagnostics()}:{})
     });
     return;
   }
@@ -230,6 +255,8 @@ const server = http.createServer(async (req,res) => {
 });
 server.listen(PORT, HOST, () => {
   console.log('[ZAP] Servidor online na porta '+PORT);
-  connectAndMigrate().catch(err => console.error('[BOOT]',err.message));
+  ensureDatabase(true).catch(err => console.error('[BOOT]',err.message));
+  const timer=setInterval(()=>{if(!databaseStatus.ok || migrationStatus!=='atualizado') ensureDatabase().catch(err=>console.error('[RETRY]',err.message));},30000);
+  timer.unref();
 });
 process.on('SIGTERM', async () => { server.close(); if(pool) await pool.end(); });
