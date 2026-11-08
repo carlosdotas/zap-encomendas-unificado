@@ -763,6 +763,7 @@ const server = http.createServer(async (req,res) => {
   if (await googleAddressSearch(req,res,path)) return;
   if (await quickClientRoutes(req,res,path)) return;
   if (await carrierDriverRoutes(req,res,path)) return;
+  if (path.startsWith('/api/driver/orders/') && await orderProofRoutes(req,res,path)) return;
   if (path.startsWith('/api/orders') || path==='/api/driver/orders') {if(await orderRoutes(req,res,path)) return;}
   if (path.startsWith('/api/auth/')) {
     if(await authRoutes(req,res,path)) return;
