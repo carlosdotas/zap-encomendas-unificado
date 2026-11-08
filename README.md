@@ -22,3 +22,11 @@ Configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` no ambiente 
 **Importante:** a conexão com o banco não foi testada na hospedagem real. O frontend V15 ainda usa armazenamento local do navegador; os cadastros e pedidos **não estão integrados ao MySQL**. Não há API CRUD nem autenticação nesta etapa. O próximo passo é implementar isso com segurança.
 
 Não publique senhas nem arquivos `.env` no GitHub.
+
+## Cadastro e login (etapa 2)
+
+O frontend V15 faz cadastro, login e logout pela API Node.js. Na primeira inicialização com MySQL disponível, a migração 2 cria `app_users` e `auth_sessions`.
+
+Rotas: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`. O cadastro pede nome completo, telefone com DDD, senha com 10 ou mais caracteres, perfil e veículo(s) para motorista. O registro autentica automaticamente. As senhas são armazenadas como hashes `scrypt` com salt individual e a sessão usa cookie HttpOnly.
+
+**Importante:** a publicação no GitHub não prova que a hospedagem atualizou nem que o banco executou as migrações. Confirme a nova implantação e teste cadastro, logout e login. A interface de pedidos/clientes ainda usa localStorage e precisa de APIs autenticadas antes de ser usada com dados reais. O cadastro público de transportadora é provisório; antes de liberar recursos administrativos, implemente aprovação e autorização por papel no servidor.
