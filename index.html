@@ -883,9 +883,10 @@ useEffect(()=>{
   if(disposed)return;
   setCallConnection('connecting');socket=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/calls');
   callSocketRef.current=socket;
-  socket.onopen=()=>{socket.send(JSON.stringify({type:'online',vehicle:activeVehicle}));setCallConnection('online')};
+  socket.onopen=()=>{socket.send(JSON.stringify({type:'online',vehicle:activeVehicle}));setCallConnection('connecting')};
   socket.onmessage=event=>{
    let msg;try{msg=JSON.parse(event.data)}catch{return}
+   if(msg.type==='call_ready'){setCallConnection('online');return}
    if(msg.type==='call_offer'){
     const job={...msg.order,requestId:String(msg.order.id)};
     if(incomingCallRef.current?.requestId!==job.requestId){
