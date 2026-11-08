@@ -406,8 +406,8 @@ async function orderRoutes(req,res,path) {
  const phone=phoneDigits(body.clientPhone||''),instructions=String(body.instructions||'').trim();
  const lat=Number(body.lat),lng=Number(body.lng);
  const type=body.type,vehicle=body.vehicle;
- if(place.length<2||place.length>255||address.length>600||client.length<2||client.length>160||instructions.length>5000||!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180||!['coleta','entrega','troca'].includes(type)||!['moto','carro','utilitario'].includes(vehicle)|| (phone && !/^\d{10,11}$/.test(phone))) {
-   sendJson(res,400,{error:'Confira local, coordenadas, cliente, telefone e tipo do pedido.'});return true;
+ if(place.length<2||place.length>255||address.length>600||client.length>160||instructions.length>5000||!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180||!['coleta','entrega','troca'].includes(type)||!['moto','carro','utilitario'].includes(vehicle)|| (phone && !/^\d{10,11}$/.test(phone))) {
+   sendJson(res,400,{error:'Confira local, coordenadas, telefone e tipo do pedido.'});return true;
  }
  const params=[place,address,lat,lng,type,vehicle,client,phone||null,instructions];
  let id;
