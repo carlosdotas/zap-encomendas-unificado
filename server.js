@@ -194,7 +194,7 @@ function setSessionCookie(req,res,token,maxAge) {
   res.setHeader('Set-Cookie','zap_session='+token+'; Path=/; HttpOnly; SameSite=Lax; Max-Age='+maxAge+(secure?'; Secure':''));
 }
 
-function masterConfig(){const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');const password=process.env.MASTER_AUTH_PASSWORD||'';const secret=process.env.MASTER_AUTH_SECRET||'';return phone.length>=10&&password.length>=10&&Buffer.byteLength(secret)>=32?{phone,password,secret}:null;}
+function masterConfig(){const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');const password=process.env.MASTER_AUTH_PASSWORD||'';const secret=process.env.MASTER_AUTH_SECRET||'';return phone.length>=10&&password.length>=6&&Buffer.byteLength(secret)>=32?{phone,password,secret}:null;}
 function masterIdentity(role){return {id:'master',full_name:'Administrador mestre',phone:process.env.MASTER_AUTH_PHONE||'',role,vehicles:'moto,carro,utilitario',isMaster:true};}
 function masterSession(req){const config=masterConfig();if(!config)return null;const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('zap_master='));if(!cookie)return null;const parts=cookie.slice(11).split('.');if(parts.length!==2)return null;const expected=crypto.createHmac('sha256',config.secret).update(parts[0]).digest();let provided;try{provided=Buffer.from(parts[1],'base64url')}catch{return null}if(provided.length!==expected.length||!crypto.timingSafeEqual(provided,expected))return null;let data;try{data=JSON.parse(Buffer.from(parts[0],'base64url').toString())}catch{return null}if(!['motorista','transportadora'].includes(data.role)||!Number.isFinite(data.exp)||data.exp<Date.now())return null;return masterIdentity(data.role);}
 function setMasterCookie(req,res,role){const config=masterConfig();const payload=Buffer.from(JSON.stringify({role,exp:Date.now()+28800000,nonce:crypto.randomBytes(12).toString('hex')})).toString('base64url');const sig=crypto.createHmac('sha256',config.secret).update(payload).digest('base64url');const secure=req.socket.encrypted||req.headers['x-forwarded-proto']==='https';res.setHeader('Set-Cookie','zap_master='+payload+'.'+sig+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800'+(secure?'; Secure':''));}
@@ -257,8 +257,8 @@ async function authRoutes(req,res,path) {
   }
   if(!pool||!databaseStatus.ok||migrationStatus!=='atualizado')await ensureDatabase();
   if(!pool||!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco de dados indisponível',diagnostic:databaseDiagnostics()});return true;}
-  if(!/^\d{10,11}$/.test(phone) || typeof password!=='string' || password.length<10 || Buffer.byteLength(password)>256) {
-    sendJson(res,400,{error:'Informe telefone com DDD e senha de pelo menos 10 caracteres.'});return true;
+  if(!/^\d{10,11}$/.test(phone) || typeof password!=='string' || password.length<6 || Buffer.byteLength(password)>256) {
+    sendJson(res,400,{error:'Informe telefone com DDD e senha de pelo menos 6 caracteres.'});return true;
   }
   if(path==='/api/auth/register') {
     if(master&&secureTextMatch(phone,master.phone)){sendJson(res,409,{error:'Telefone reservado para a administração.'});return true;}
