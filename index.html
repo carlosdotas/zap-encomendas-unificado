@@ -839,7 +839,7 @@ useEffect(()=>{
    const response=await fetch('/api/orders',{credentials:'same-origin',cache:'no-store'});
    const data=await response.json();
    if(!response.ok)throw Error(data.error||'Não foi possível carregar pedidos');
-   if(active)setRegisteredRequests((data.orders||[]).filter(o=>o.status==='Aguardando motorista'&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lng))).map(o=>({...o,lat:Number(o.lat),lng:Number(o.lng),requestId:String(o.id),closesAt:o.closesAt||''})));
+   if(active){const next=(data.orders||[]).filter(o=>o.status==='Aguardando motorista'&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lng))).map(o=>({...o,lat:Number(o.lat),lng:Number(o.lng),requestId:String(o.id),closesAt:o.closesAt||''}));setRegisteredRequests(previous=>JSON.stringify(previous)===JSON.stringify(next)?previous:next);}
   }catch(err){if(active)setToast(err.message||'Falha ao consultar pedidos');}
  }
  refreshOrders();const timer=setInterval(refreshOrders,12000);
@@ -860,10 +860,8 @@ useEffect(()=>{
  const driver=gpsPointRef.current;
  // A rota é calculada automaticamente assim que a chamada chega, sem exigir Visualizar/Aceitar.
  showRouteToJob(incomingCall);
- if(driver&&driver.every(Number.isFinite))map.fitBounds(L.latLngBounds([driver,[lat,lng]]),{paddingTopLeft:[45,70],paddingBottomRight:[45,Math.round(window.innerHeight*.38)],maxZoom:16,animate:true});
- else map.flyTo([lat,lng],16,{duration:.6});
  return()=>{marker.remove();if(incomingMarkerRef.current===marker)incomingMarkerRef.current=null};
-},[incomingCall,registeredRequests,activeVehicle]);const calledPlacesRef=useRef(new Set());const acceptedPlacesRef=useRef(new Set());const callAudioRef=useRef(null);
+},[incomingCall]);const calledPlacesRef=useRef(new Set());const acceptedPlacesRef=useRef(new Set());const callAudioRef=useRef(null);
 function stopCallSound(){if(callAudioRef.current){clearInterval(callAudioRef.current.timer);try{callAudioRef.current.ctx.close()}catch{}callAudioRef.current=null}}
 function playCallSound(){stopCallSound();try{const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;const ctx=new AudioContext();function beep(){if(ctx.state==='closed')return;const now=ctx.currentTime;[0,.22].forEach(offset=>{const oscillator=ctx.createOscillator(),gain=ctx.createGain();oscillator.type='sine';oscillator.frequency.value=740;gain.gain.setValueAtTime(.0001,now+offset);gain.gain.exponentialRampToValueAtTime(.12,now+offset+.025);gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.17);oscillator.connect(gain);gain.connect(ctx.destination);oscillator.start(now+offset);oscillator.stop(now+offset+.18)})}ctx.resume().then(beep).catch(()=>{});callAudioRef.current={ctx,timer:setInterval(beep,1700)}}catch{}}
 function testIncomingCall(){
@@ -875,7 +873,7 @@ setSelectedJob(null);setCompletedDetail(null);setIncomingCall(next);setCallExpan
 }
 function dismissIncomingCall(accepted){
 const job=incomingCall;stopCallSound();setIncomingCall(null);setCallExpanded(false);
-if(accepted&&job){acceptedPlacesRef.current.add(job.place);refreshRef.current?.();const map=mapRef.current;if(map)map.flyTo([job.lat,job.lng],Math.max(15,map.getZoom()),{duration:.7});setSelectedJob(job);showRouteToJob(job);setToast('Chamada aceita. O local agora aparece no mapa.');}
+if(accepted&&job){acceptedPlacesRef.current.add(job.place);refreshRef.current?.();setSelectedJob(job);setToast('Chamada aceita. Rota mantida no mapa.');}
 else if(job){clearRoute();setToast('Chamada recusada. O local não foi adicionado ao mapa.');}
 }
 useEffect(()=>()=>stopCallSound(),[]);
@@ -917,7 +915,7 @@ jobsLayer.addLayer(cluster);
 }
 refreshRef.current=renderJobClusters;
 map.on('zoomend moveend',renderJobClusters);
-renderJobClusters();setTimeout(()=>map.invalidateSize(),150);return()=>{map.remove();mapRef.current=null}},[registeredRequests,activeVehicle]);
+renderJobClusters();const resizeTimer=setTimeout(()=>map.invalidateSize(),150);return()=>{clearTimeout(resizeTimer);routeRequestRef.current++;routeLayerRef.current=null;markerRef.current=null;gpsAccuracyRef.current=null;incomingMarkerRef.current=null;refreshRef.current=null;jobsRef.current=[];map.remove();mapRef.current=null}},[registeredRequests,activeVehicle]);
  async function showRouteToJob(job){
   routeTargetRef.current=job;
   const requestId=++routeRequestRef.current;
@@ -925,7 +923,7 @@ renderJobClusters();setTimeout(()=>map.invalidateSize(),150);return()=>{map.remo
   if(!map||!window.L)return;
   if(routeLayerRef.current){map.removeLayer(routeLayerRef.current);routeLayerRef.current=null}
   const start=gpsPointRef.current;
-  if(!start){setRouteStatus('Aguardando localização do motorista para calcular a rota.');map.flyTo([job.lat,job.lng],15,{duration:.6});map.panBy([0,Math.round(window.innerHeight*.18)],{animate:true});startDriverGps();return}
+  if(!start){setRouteStatus('Aguardando localização do motorista para calcular a rota.');startDriverGps();return}
   setRouteStatus('Calculando rota pelas ruas...');
   try{
    const endpoint='https://router.project-osrm.org/route/v1/driving/'+start[1]+','+start[0]+';'+job.lng+','+job.lat+'?overview=full&geometries=geojson&steps=false';
@@ -961,7 +959,7 @@ renderJobClusters();setTimeout(()=>map.invalidateSize(),150);return()=>{map.remo
  jobsRef.current.forEach(job=>job.marker.setIcon(L.divIcon({className:'job-div-icon',html:markerHtml(job,point),iconSize:[399,154],iconAnchor:[29,154]})));
  if(incomingCall&&incomingMarkerRef.current)incomingMarkerRef.current.setIcon(L.divIcon({className:'job-div-icon zap-incoming-location-icon',html:markerHtml(incomingCall,point),iconSize:[399,154],iconAnchor:[29,154]}));
  if(refreshRef.current)refreshRef.current();
- if(gpsFirstFixRef.current){gpsFirstFixRef.current=false;map.invalidateSize();if(incomingCall){showRouteToJob(incomingCall)}else{map.flyTo(point,17,{duration:.8});setToast('Mapa centralizado na localização do motorista')}}
+ if(gpsFirstFixRef.current){gpsFirstFixRef.current=false;map.invalidateSize();if(routeTargetRef.current&&!routeLayerRef.current){showRouteToJob(routeTargetRef.current)}else if(!routeTargetRef.current){map.flyTo(point,17,{duration:.8});setToast('Mapa centralizado na localização do motorista')}}
  }
  function gpsError(err){setGpsStatus('GPS indisponível');const message=err?.code===1?'Permita o acesso à localização nas configurações do navegador.':err?.code===3?'GPS demorou para responder. Tente novamente.':'Não foi possível obter sua localização.';setToast(message)}
  function startDriverGps(){
