@@ -330,6 +330,10 @@ async function orderRoutes(req,res,path) {
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para gerenciar pedidos'});return true;}
  if(user.isMaster){sendJson(res,403,{error:'Acesso mestre em modo de visualização. Use uma conta real para gerenciar pedidos.'});return true;}
+ if(req.method==='GET' && path==='/api/orders' && user.role==='motorista'){
+   const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE o.status='aguardando_motorista' ORDER BY o.created_at ASC LIMIT 500");
+   sendJson(res,200,{orders:rows.map(row=>({...mapOrder(row),carrier:row.carrier_name||'Transportadora'}))});return true;
+ }
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras podem cadastrar pedidos'});return true;}
  if(req.method==='GET' && path==='/api/orders') {
    const [rows]=await pool.execute('SELECT * FROM zap_order_entries WHERE owner_user_id=? ORDER BY id DESC LIMIT 500',[user.id]);
