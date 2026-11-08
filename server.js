@@ -444,6 +444,28 @@ async function locationAliasRoutes(req,res,path){
 }
 
 function normalizeLocationSearch(q){return String(q||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+async function savedPlacesRoutes(req,res,path){
+ if(path!=='/api/maps/saved'||req.method!=='GET')return false;
+ const user=await getSession(req);
+ if(!user||user.role!=='transportadora'){sendJson(res,403,{error:'Acesso restrito à transportadora'});return true;}
+ await ensureDatabase();
+ if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco de locais indisponível'});return true;}
+ const [aliases]=await pool.execute('SELECT place_id,custom_name AS name,address,latitude AS lat,longitude AS lon FROM zap_location_aliases WHERE owner_user_id=? ORDER BY updated_at DESC LIMIT 200',[user.id]);
+ const [orders]=await pool.execute('SELECT place AS name,address,latitude AS lat,longitude AS lon FROM zap_order_entries WHERE owner_user_id=? ORDER BY updated_at DESC LIMIT 300',[user.id]);
+ const [locations]=await pool.execute('SELECT place_id,name,address,latitude AS lat,longitude AS lon FROM zap_locations WHERE expires_at IS NULL OR expires_at>UTC_TIMESTAMP() ORDER BY updated_at DESC LIMIT 300');
+ const seen=new Set(),results=[];
+ for(const row of [...aliases,...orders,...locations]){
+  const lat=Number(row.lat),lon=Number(row.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;
+  const name=String(row.name||'').trim(),address=String(row.address||'').trim();
+  if(!name&&!address)continue;
+  const key=lat.toFixed(5)+','+lon.toFixed(5);
+  if(seen.has(key))continue;seen.add(key);
+  results.push({place_id:row.place_id||null,name:name||address.split(',')[0],display_name:address||name,lat,lon});
+ }
+ sendJson(res,200,{results});return true;
+}
+
 async function googleAddressSearch(req,res,path) {
  if(path!=='/api/maps/search' || req.method!=='GET')return false;
  const query=new URL(req.url,'http://localhost').searchParams.get('q')?.trim()||'';
@@ -505,6 +527,7 @@ const server = http.createServer(async (req,res) => {
   if (path.startsWith('/api/admin/')) {if(await adminRoutes(req,res,path)) return;}
   if (mapsBrowserConfig(req,res,path)) return;
   if (await locationAliasRoutes(req,res,path)) return;
+  if (await savedPlacesRoutes(req,res,path)) return;
   if (await googleAddressSearch(req,res,path)) return;
   if (await quickClientRoutes(req,res,path)) return;
   if (path.startsWith('/api/orders')) {if(await orderRoutes(req,res,path)) return;}
