@@ -226,7 +226,7 @@ async function authRoutes(req,res,path) {
     const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');
     const password=process.env.MASTER_AUTH_PASSWORD||'';
     const secret=process.env.MASTER_AUTH_SECRET||'';
-    const checks={phone: /^\\d{10,11}$/.test(phone),password: password.length>=6,secret:Buffer.byteLength(secret)>=32};
+    const checks={phone: /^\d{10,11}$/.test(phone),password: password.length>=6,secret:Buffer.byteLength(secret)>=32};
     sendJson(res,200,{masterAuth:{ready:Object.values(checks).every(Boolean),checks},databaseRequired:false});
     return true;
   }
