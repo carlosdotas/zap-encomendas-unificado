@@ -853,9 +853,9 @@ useEffect(()=>{
  if(!map||!window.L||!incomingCall)return;
  const lat=Number(incomingCall.lat),lng=Number(incomingCall.lng);
  if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
- const icon=L.divIcon({className:'zap-incoming-location-icon',html:'<div style="width:38px;height:38px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#f58220;border:3px solid white;box-shadow:0 2px 12px #0006;display:grid;place-items:center"><span style="transform:rotate(45deg);color:white;font-size:21px;font-weight:bold">●</span></div>',iconSize:[38,38],iconAnchor:[19,38]});
- const marker=L.marker([lat,lng],{icon,zIndexOffset:2000,title:'Local da chamada: '+incomingCall.place}).addTo(map);
- marker.bindTooltip('Local da chamada: '+incomingCall.place,{direction:'top',offset:[0,-36]});
+ // Usa o mesmo marcador completo dos pedidos aceitos, com dados da chamada.
+ const icon=L.divIcon({className:'job-div-icon zap-incoming-location-icon',html:markerHtml(incomingCall,gpsPointRef.current),iconSize:[399,154],iconAnchor:[29,154]});
+ const marker=L.marker([lat,lng],{icon,zIndexOffset:2000,title:'Chamada: '+incomingCall.place}).addTo(map);
  incomingMarkerRef.current=marker;
  const driver=gpsPointRef.current;
  // A rota é calculada automaticamente assim que a chamada chega, sem exigir Visualizar/Aceitar.
@@ -959,6 +959,7 @@ renderJobClusters();setTimeout(()=>map.invalidateSize(),150);return()=>{map.remo
  if(!gpsAccuracyRef.current)gpsAccuracyRef.current=L.circle(point,{radius:accuracy,color:'#1878e9',weight:1,opacity:.35,fillColor:'#1878e9',fillOpacity:.09,interactive:false}).addTo(map);
  else gpsAccuracyRef.current.setLatLng(point).setRadius(accuracy);
  jobsRef.current.forEach(job=>job.marker.setIcon(L.divIcon({className:'job-div-icon',html:markerHtml(job,point),iconSize:[399,154],iconAnchor:[29,154]})));
+ if(incomingCall&&incomingMarkerRef.current)incomingMarkerRef.current.setIcon(L.divIcon({className:'job-div-icon zap-incoming-location-icon',html:markerHtml(incomingCall,point),iconSize:[399,154],iconAnchor:[29,154]}));
  if(refreshRef.current)refreshRef.current();
  if(gpsFirstFixRef.current){gpsFirstFixRef.current=false;map.invalidateSize();if(incomingCall){showRouteToJob(incomingCall)}else{map.flyTo(point,17,{duration:.8});setToast('Mapa centralizado na localização do motorista')}}
  }
