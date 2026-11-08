@@ -67,7 +67,8 @@ const migrations = [
   [10, ["ALTER TABLE zap_order_entries ADD COLUMN driver_id BIGINT UNSIGNED NULL", "ALTER TABLE zap_order_entries ADD INDEX idx_zap_order_driver (driver_id)"]],
   [11, ["CREATE TABLE IF NOT EXISTS zap_driver_positions (user_id BIGINT UNSIGNED PRIMARY KEY, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, accuracy FLOAT NOT NULL, captured_at DATETIME NOT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB"]],
   [12, ["CREATE TABLE IF NOT EXISTS zap_carrier_driver_settings (carrier_id BIGINT UNSIGNED PRIMARY KEY, configured TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_carrier_allowed_drivers (carrier_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, PRIMARY KEY (carrier_id,driver_id), KEY idx_allowed_driver (driver_id)) ENGINE=InnoDB"]],
-  [13, ["ALTER TABLE zap_order_entries ADD COLUMN value_items JSON NULL"]]
+  [13, ["ALTER TABLE zap_order_entries ADD COLUMN value_items JSON NULL"]],
+  [14, ["CREATE TABLE IF NOT EXISTS zap_order_proofs (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, order_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, action ENUM('coleta','entrega','troca') NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_proof_order (order_id), KEY idx_proof_driver (driver_id)) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_order_proof_photos (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, proof_id BIGINT UNSIGNED NOT NULL, mime_type VARCHAR(32) NOT NULL, image_data LONGBLOB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_proof_photo (proof_id)) ENGINE=InnoDB"]]
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
@@ -417,6 +418,63 @@ async function carrierDriverRoutes(req,res,path){
  sendJson(res,200,{ok:true});return true;
 }
 
+async function orderProofRoutes(req,res,path){
+ const match=path.match(/^\/api\/driver\/orders\/(\d+)\/proofs(?:\/(\d+)\/photos\/(\d+))?$/);
+ if(!match)return false;
+ if(req.method!=='POST'&&req.method!=='GET'){sendJson(res,405,{error:'Método não permitido'});return true;}
+ if(req.method==='POST'&&req.headers.origin){let origin='';try{origin=new URL(req.headers.origin).host}catch{}const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}}
+ await ensureDatabase();
+ if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true;}
+ const user=await getSession(req);
+ if(!user||user.role!=='motorista'){sendJson(res,403,{error:'Acesso restrito ao profissional'});return true;}
+ const orderId=match[1];
+ const [orders]=await pool.execute('SELECT id,driver_id,service_type,status FROM zap_order_entries WHERE id=? AND driver_id=?',[orderId,user.id]);
+ if(!orders.length){sendJson(res,404,{error:'Pedido não atribuído a este profissional'});return true;}
+ if(req.method==='GET'){
+  if(match[2]&&match[3]){
+   const [photos]=await pool.execute('SELECT p.mime_type,p.image_data FROM zap_order_proof_photos p JOIN zap_order_proofs f ON f.id=p.proof_id WHERE p.id=? AND f.id=? AND f.order_id=? AND f.driver_id=?',[match[3],match[2],orderId,user.id]);
+   if(!photos.length){sendJson(res,404,{error:'Foto não encontrada'});return true;}
+   res.writeHead(200,{'Content-Type':photos[0].mime_type,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});res.end(photos[0].image_data);return true;
+  }
+  const [rows]=await pool.execute('SELECT id,action,created_at FROM zap_order_proofs WHERE order_id=? AND driver_id=? ORDER BY id DESC',[orderId,user.id]);
+  sendJson(res,200,{proofs:rows});return true;
+ }
+ if(match[2]){sendJson(res,405,{error:'Método não permitido'});return true;}
+ if(orders[0].status!=='aceito'){sendJson(res,409,{error:'O pedido precisa estar aceito para registrar o serviço'});return true;}
+ let body;try{body=await readProofBody(req)}catch(e){sendJson(res,413,{error:e.message||'Fotos muito grandes'});return true;}
+ const action=String(body.action||'');
+ if(!['coleta','entrega','troca'].includes(action)||action!==orders[0].service_type){sendJson(res,400,{error:'Tipo de confirmação incompatível com o pedido'});return true;}
+ const photos=body.photos;
+ if(!Array.isArray(photos)||photos.length>5||(action!=='entrega'&&!photos.length)){sendJson(res,400,{error:'Informe de 1 a 5 fotos para coleta ou troca'});return true;}
+ const parsed=[];
+ for(const data of photos){
+  const m=typeof data==='string'&&data.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+  if(!m){sendJson(res,400,{error:'Formato de foto inválido'});return true;}
+  const bytes=Buffer.from(m[2],'base64');
+  if(!bytes.length||bytes.length>2*1024*1024){sendJson(res,413,{error:'Cada foto deve ter no máximo 2 MB'});return true;}
+  parsed.push({mime:m[1],bytes});
+ }
+ const connection=await pool.getConnection();
+ try{
+  await connection.beginTransaction();
+  const [existing]=await connection.execute('SELECT id FROM zap_order_proofs WHERE order_id=? AND driver_id=? AND action=? LIMIT 1',[orderId,user.id,action]);
+  if(existing.length){await connection.rollback();sendJson(res,409,{error:'Este serviço já foi registrado'});return true;}
+  const [saved]=await connection.execute('INSERT INTO zap_order_proofs (order_id,driver_id,action) VALUES (?,?,?)',[orderId,user.id,action]);
+  for(const photo of parsed)await connection.execute('INSERT INTO zap_order_proof_photos (proof_id,mime_type,image_data) VALUES (?,?,?)',[saved.insertId,photo.mime,photo.bytes]);
+  await connection.execute("UPDATE zap_order_entries SET status='concluido' WHERE id=? AND driver_id=? AND status='aceito'",[orderId,user.id]);
+  await connection.commit();
+  sendJson(res,201,{ok:true,proofId:String(saved.insertId),photoCount:parsed.length});
+ }catch(e){await connection.rollback();sendJson(res,500,{error:'Não foi possível salvar a confirmação e as fotos'});}finally{connection.release();}
+ return true;
+}
+function readProofBody(req){
+ return new Promise((resolve,reject)=>{
+  let size=0,parts=[],done=false;
+  req.on('data',chunk=>{if(done)return;size+=chunk.length;if(size>14*1024*1024){done=true;reject(new Error('Limite de 14 MB por confirmação'));req.resume();return;}parts.push(chunk)});
+  req.on('end',()=>{if(done)return;try{resolve(JSON.parse(Buffer.concat(parts).toString('utf8')))}catch{reject(new Error('Dados inválidos'))}});
+  req.on('error',reject);
+ });
+}
 async function orderRoutes(req,res,path) {
  if(!path.startsWith('/api/orders') && path!=='/api/driver/orders') return false;
  if(!['GET','POST','PUT'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true;}
