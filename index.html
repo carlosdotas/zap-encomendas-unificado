@@ -787,7 +787,7 @@ function Auth({onLogin,onBack,carrierMode=false,adminMode=false}){
 
  useEffect(()=>{
   const root=authScreenRef.current;
-  if(!root)return;
+  if(!root||window.ZapViewport?.managed)return;
   const viewport=window.visualViewport;
   let raf=0;
   const update=()=>{
@@ -1201,7 +1201,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
  const mapEl=useRef(null),mapRef=useRef(null),pinRef=useRef(null),orderLayerRef=useRef(null),searchLayerRef=useRef(null),instructionsRef=useRef(null),sheetTouchRef=useRef(null),addressSearchRef=useRef(null);
  useEffect(()=>{
   const root=document.querySelector('.carrier-map-page');
-  if(!root)return;
+  if(!root||window.ZapViewport?.managed)return;
   const vv=window.visualViewport;
   let raf=0;
   const update=()=>{
@@ -1422,6 +1422,11 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   const root=document.querySelector('.carrier-map-page');
   const panel=root?.querySelector('.carrier-map-bottom');
   if(!root||!panel)return;
+  if(window.ZapViewport?.managed){
+   const field=instructionsRef.current;
+   const timer=setTimeout(()=>{field?.focus({preventScroll:true});window.ZapViewport.ensureFocusedVisible();},180);
+   return()=>clearTimeout(timer);
+  }
   let raf=0;
   const adjust=()=>{
    cancelAnimationFrame(raf);
@@ -1455,7 +1460,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   return ()=>{clearTimeout(timer);cancelAnimationFrame(raf);vv?.removeEventListener('resize',adjust);vv?.removeEventListener('scroll',adjust);window.removeEventListener('resize',adjust);field?.removeEventListener('focus',focusField);root.classList.remove('zap-keyboard-open');root.style.removeProperty('--zap-keyboard-bottom');root.style.removeProperty('--zap-visible-height')};
  },[selected,configCollapsed]);
  useEffect(()=>{
-  if(selected||viewOrder)return;
+  if(selected||viewOrder||window.ZapViewport?.managed)return;
   const root=document.querySelector('.carrier-map-page');
   const input=addressSearchRef.current;
   if(!root||!input)return;

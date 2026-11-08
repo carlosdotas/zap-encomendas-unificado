@@ -16,10 +16,12 @@ import androidx.core.view.WindowInsetsControllerCompat;
 final class SystemBars {
     private SystemBars() {}
 
+    static void configure(Activity activity,int surface){configure(activity,surface,true);}
+    static void configureWebView(Activity activity,int surface){configure(activity,surface,Build.VERSION.SDK_INT<30);}
     @SuppressWarnings("deprecation")
-    static void configure(Activity activity, int surface) {
+    private static void configure(Activity activity,int surface,boolean fitDecor) {
         Window window=activity.getWindow();
-        WindowCompat.setDecorFitsSystemWindows(window,true);
+        WindowCompat.setDecorFitsSystemWindows(window,fitDecor);
         window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         window.setStatusBarColor(surface);

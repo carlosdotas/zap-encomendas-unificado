@@ -19,6 +19,7 @@ import java.util.*;
 
 public class MainActivity extends BridgeActivity {
     private boolean pendingStart=false, registered=false, permissionDialog=false, permissionRequestInFlight=false;
+    private WebViewViewport viewport;
     private boolean backRequestInFlight=false,shareIntentHandled=false;
     @Override protected void onCreate(Bundle saved){
         if(saved!=null&&saved.getBoolean("zap_share_intent_handled",false)){
@@ -30,7 +31,8 @@ public class MainActivity extends BridgeActivity {
     private final BroadcastReceiver events=new BroadcastReceiver(){public void onReceive(Context c,Intent i){dispatch(i.getStringExtra("type"),i.getStringExtra("data"));}};
     @Override protected void load(){
         super.load();
-        SystemBars.configure(this,ContextCompat.getColor(this,R.color.zap_system_bar_surface));
+        SystemBars.configureWebView(this,ContextCompat.getColor(this,R.color.zap_system_bar_surface));
+        viewport=new WebViewViewport(this,bridge.getWebView());
         getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){
             @Override public void handleOnBackPressed(){
                 if(backRequestInFlight)return;
@@ -59,7 +61,8 @@ public class MainActivity extends BridgeActivity {
         if(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))WebViewCompat.addWebMessageListener(bridge.getWebView(),"ZapNative",origins,(view,message,origin,main,reply)->{
             if(!main)return;
             try {JSONObject m=new JSONObject(message.getData());String type=m.optString("type");
-                if(type.equals("location_ready")){deliverSharedLocation();}
+                if(type.equals("viewport_ready")){viewport.ready();}
+                else if(type.equals("location_ready")){deliverSharedLocation();}
                 else if(type.equals("location_ack")){
                     String stored=getSharedPreferences("shared_location",MODE_PRIVATE).getString("pending",null);
                     if(stored!=null&&new JSONObject(stored).optString("id").equals(m.optString("id")))getSharedPreferences("shared_location",MODE_PRIVATE).edit().remove("pending").apply();
@@ -69,7 +72,7 @@ public class MainActivity extends BridgeActivity {
                 else if(type.equals("send")){Intent i=new Intent(this,DriverService.class).setAction("send").putExtra("data",m.getString("data"));if(DriverService.running)startService(i);}
             }catch(Exception ignored){}
         });
-        for(String asset:new String[]{"navigation.js","location-input.js","shared-location.js","driver-bridge.js"}){
+        for(String asset:new String[]{"viewport.js","navigation.js","location-input.js","shared-location.js","driver-bridge.js"}){
             try(java.io.InputStream in=getAssets().open(asset)){
                 java.io.ByteArrayOutputStream buffer=new java.io.ByteArrayOutputStream();
                 byte[] bytes=new byte[4096];int count;while((count=in.read(bytes))!=-1)buffer.write(bytes,0,count);

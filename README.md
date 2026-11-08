@@ -195,14 +195,17 @@ essa geração antes de sincronizar o Capacitor. O logo fica dentro da área seg
 do ícone adaptativo para preservar o círculo e as setas nas máscaras do Android.
 A tela de inicialização também usa esse vetor.
 
-### Barras do Android
+### Barras e teclado do Android
 
-O WebView respeita as áreas da barra de status, da navegação inferior e dos
-recortes da tela. No Android 15+, `adjustMarginsForEdgeToEdge: auto` reserva
-essas margens; nas versões anteriores, o sistema ajusta a janela normalmente.
-O fundo das barras do aplicativo é claro, com relógio, bateria e botões escuros,
-independentemente do CSS do site. A tela nativa de chamada mantém fundo escuro
-com ícones claros e também protege seu conteúdo contra as barras e recortes.
+O contêiner do WebView respeita barras, recortes e teclado. Android 11+ usa um
+único controlador nativo de insets, com fundo `max(navegação, IME)`; Android
+8–10 usa decor fitting e `adjustResize`, sem compensação manual adicional.
+O ajuste automático de margens do Capacitor fica desativado para evitar dois
+controladores. O contraste das barras e a tela nativa de chamada são preservados.
+
+Veja [a análise, os arquivos alterados e a validação do teclado](docs/android-keyboard.md).
+O teste em aparelho físico permanece pendente nesta execução; não houve um
+aparelho conectado e a emulação Android não estabilizou antes de iniciar o app.
 
 ### Fechar janelas e botão Voltar
 

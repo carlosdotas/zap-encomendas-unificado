@@ -10,7 +10,8 @@
     "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "test:mobile": "node --test test/*.test.js",
     "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
-    "android:icons": "node scripts/generate-icons.js"
+    "android:icons": "node scripts/generate-icons.js",
+    "android:test:prepare": "node scripts/prepare-ime-tests.js"
   },
   "engines": {
     "node": ">=20"

@@ -9,3 +9,5 @@ artifacts/
 *.jks
 *.keystore
 android/app/google-services.json
+
+android/app/src/androidTest/assets/ime-web/
