@@ -394,7 +394,7 @@ async function carrierDriverRoutes(req,res,path){
  const user=await getSession(req);
  if(!user||user.role!=='transportadora'){sendJson(res,403,{error:'Acesso exclusivo da transportadora'});return true}
  if(req.method==='GET'){
-  const [rows]=await pool.execute("SELECT id,full_name,vehicles,role FROM app_users WHERE role IN ('motorista','transportadora') ORDER BY full_name ASC");
+  const [rows]=await pool.execute("SELECT id,full_name,vehicles,role FROM app_users WHERE role='motorista' ORDER BY full_name ASC");
   const [settings]=await pool.execute('SELECT configured FROM zap_carrier_driver_settings WHERE carrier_id=?',[user.id]);
   const [allowed]=await pool.execute('SELECT driver_id FROM zap_carrier_allowed_drivers WHERE carrier_id=?',[user.id]);
   sendJson(res,200,{configured:settings.length>0,drivers:rows.map(d=>({id:String(d.id),name:d.full_name,vehicles:String(d.vehicles||'').split(',').filter(Boolean),role:d.role,allowed:settings.length===0||allowed.some(a=>String(a.driver_id)===String(d.id))}))});return true;
@@ -408,7 +408,7 @@ async function carrierDriverRoutes(req,res,path){
   await conn.beginTransaction();
   await conn.execute('INSERT INTO zap_carrier_driver_settings (carrier_id,configured) VALUES (?,1) ON DUPLICATE KEY UPDATE configured=1',[user.id]);
   await conn.execute('DELETE FROM zap_carrier_allowed_drivers WHERE carrier_id=?',[user.id]);
-  for(const id of ids){const [valid]=await conn.execute("SELECT id FROM app_users WHERE id=? AND role IN ('motorista','transportadora')",[id]);if(!valid.length)throw Error('Profissional inválido');await conn.execute('INSERT INTO zap_carrier_allowed_drivers (carrier_id,driver_id) VALUES (?,?)',[user.id,id])}
+  for(const id of ids){const [valid]=await conn.execute("SELECT id FROM app_users WHERE id=? AND role='motorista'",[id]);if(!valid.length)throw Error('Profissional inválido');await conn.execute('INSERT INTO zap_carrier_allowed_drivers (carrier_id,driver_id) VALUES (?,?)',[user.id,id])}
   await conn.commit();
  }catch(err){await conn.rollback();sendJson(res,400,{error:err.message||'Falha ao salvar seleção'});return true}finally{conn.release()}
  carrierAllowedCache.delete(String(user.id));
