@@ -48,6 +48,37 @@ const migrations = [
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
 function safeErrorCode(err) { return String(err?.code || 'ERRO_DESCONHECIDO').replace(/[^A-Z0-9_]/g,'').slice(0,60); }
 function dbErrorHint(code) { const hints={ER_NO_SUCH_TABLE:'Tabela de autenticação não existe. Verifique as migrações e permissões CREATE TABLE.',ER_BAD_FIELD_ERROR:'A tabela existente tem colunas incompatíveis com o cadastro.',ER_ACCESS_DENIED_ERROR:'Credenciais ou permissões MySQL incorretas.',ER_DBACCESS_DENIED_ERROR:'Usuário sem acesso ao banco configurado.',ER_TABLEACCESS_DENIED_ERROR:'Usuário sem permissão nas tabelas.',ER_BAD_DB_ERROR:'Banco DB_NAME não existe.',ECONNREFUSED:'MySQL recusou a conexão: confira DB_HOST e DB_PORT.',ENOTFOUND:'Endereço DB_HOST não encontrado.',ETIMEDOUT:'Conexão MySQL expirou.',ER_DUP_ENTRY:'Já existe cadastro com esses dados.'};return hints[code]||'Consulte o código do erro nos logs da hospedagem.'; }
+
+async function reconcileAuthSchema() {
+  // CREATE IF NOT EXISTS nao modifica tabelas antigas; corrigir apenas colunas ausentes.
+  const tables = {
+    app_users: {
+      full_name:"VARCHAR(160) NULL",
+      phone:"VARCHAR(20) NULL",
+      password_hash:"VARCHAR(255) NULL",
+      role:"ENUM('motorista','transportadora') NOT NULL DEFAULT 'motorista'",
+      vehicles:"VARCHAR(100) NULL",
+      created_at:"TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP"
+    },
+    auth_sessions: {
+      token_hash:"CHAR(64) NULL",
+      user_id:"BIGINT UNSIGNED NULL",
+      expires_at:"DATETIME NULL",
+      created_at:"TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP"
+    }
+  };
+  for(const [table,expected] of Object.entries(tables)) {
+    const [cols]=await pool.query('SHOW COLUMNS FROM `'+table+'`');
+    const existing=new Set(cols.map(c=>c.Field));
+    for(const [column,definition] of Object.entries(expected)) {
+      if(!existing.has(column)) {
+        console.log('[MIGRATION] Adicionando coluna '+table+'.'+column);
+        await pool.query('ALTER TABLE `'+table+'` ADD COLUMN `'+column+'` '+definition);
+      }
+    }
+  }
+}
+
 async function connectAndMigrate() {
   lastAttemptAt = Date.now();
   if (!configured()) {
@@ -67,6 +98,7 @@ async function connectAndMigrate() {
       for (const sql of statements) await pool.query(sql);
       await pool.execute('INSERT INTO schema_migrations (version) VALUES (?)', [version]);
     }
+    await reconcileAuthSchema();
     await pool.query("INSERT INTO carriers (id,name) VALUES (1,'Zap Encomendas') ON DUPLICATE KEY UPDATE id=id");
     databaseStatus = {ok:true, message:'MySQL conectado e estrutura verificada', checkedAt:new Date().toISOString()};
     migrationStatus = 'atualizado';
