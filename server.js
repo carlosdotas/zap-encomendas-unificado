@@ -488,8 +488,12 @@ async function orderRoutes(req,res,path) {
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para gerenciar pedidos'});return true;}
  if(req.method==='GET' && (path==='/api/driver/orders' || (path==='/api/orders' && user.role==='motorista')) && ['motorista','transportadora'].includes(user.role)){
-   const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE (o.status='aguardando_motorista' AND (NOT EXISTS (SELECT 1 FROM zap_carrier_driver_settings cs WHERE cs.carrier_id=o.owner_user_id) OR EXISTS (SELECT 1 FROM zap_carrier_allowed_drivers ad WHERE ad.carrier_id=o.owner_user_id AND ad.driver_id=?))) OR (o.driver_id=? AND o.status='aceito') ORDER BY o.created_at ASC LIMIT 500",[user.id,user.id]);
-   sendJson(res,200,{orders:rows.map(row=>({...mapOrder(row),carrier:row.carrier_name||'Transportadora'}))});return true;
+   const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE (o.status='aguardando_motorista' AND (NOT EXISTS (SELECT 1 FROM zap_carrier_driver_settings cs WHERE cs.carrier_id=o.owner_user_id) OR EXISTS (SELECT 1 FROM zap_carrier_allowed_drivers ad WHERE ad.carrier_id=o.owner_user_id AND ad.driver_id=?))) OR (o.driver_id=? AND o.status IN ('aceito','concluido')) ORDER BY o.created_at ASC LIMIT 500",[user.id,user.id]);
+   const completedIds=rows.filter(row=>row.status==='concluido').map(row=>row.id);
+   let proofs=[];
+   if(completedIds.length){const placeholders=completedIds.map(()=>'?').join(',');const [proofRows]=await pool.execute('SELECT f.id,f.order_id,f.action,f.created_at,COUNT(p.id) AS photo_count FROM zap_order_proofs f LEFT JOIN zap_order_proof_photos p ON p.proof_id=f.id WHERE f.order_id IN ('+placeholders+') AND f.driver_id=? GROUP BY f.id,f.order_id,f.action,f.created_at',[...completedIds,user.id]);proofs=proofRows;}
+   const proofByOrder=new Map(proofs.map(p=>[String(p.order_id),p]));
+   sendJson(res,200,{orders:rows.map(row=>{const proof=proofByOrder.get(String(row.id));return {...mapOrder(row),carrier:row.carrier_name||'Transportadora',proof:proof?{id:String(proof.id),action:proof.action,createdAt:proof.created_at,photoCount:Number(proof.photo_count)}:null}})});return true;
  }
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras podem cadastrar pedidos'});return true;}
  if(req.method==='GET' && path==='/api/orders') {
