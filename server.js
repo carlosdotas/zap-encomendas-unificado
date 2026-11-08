@@ -57,7 +57,8 @@ const migrations = [
   ]],
   [7, [
     "CREATE TABLE IF NOT EXISTS zap_location_aliases (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, owner_user_id BIGINT UNSIGNED NOT NULL, place_id VARCHAR(255) NULL, custom_name VARCHAR(255) NOT NULL, address VARCHAR(600) NOT NULL, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_alias_owner_place (owner_user_id,place_id), KEY idx_alias_name (custom_name(100))) ENGINE=InnoDB"
-  ]]
+   ]] ,
+  [8, ["ALTER TABLE app_users MODIFY COLUMN role ENUM('motorista','transportadora','administrador') NOT NULL DEFAULT 'motorista'"]] 
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
@@ -269,6 +270,24 @@ async function authRoutes(req,res,path) {
 }
 
 
+async function adminRoutes(req,res,path){
+ if(path!=='/api/admin/overview'||req.method!=='GET')return false;
+ const user=await getSession(req);
+ if(!user){sendJson(res,401,{error:'Faça login para acessar a administração.'});return true;}
+ if(user.role!=='administrador'){sendJson(res,403,{error:'Acesso restrito à administração.'});return true;}
+ const [[users],[orders],[recent]] = await Promise.all([
+  pool.query("SELECT role,COUNT(*) AS total FROM app_users GROUP BY role"),
+  pool.query("SELECT status,COUNT(*) AS total FROM zap_order_entries GROUP BY status"),
+  pool.query("SELECT o.id,o.place,o.service_type,o.vehicle_type,o.status,o.created_at,u.full_name AS carrier_name FROM zap_order_entries o LEFT JOIN app_users u ON u.id=o.owner_user_id ORDER BY o.created_at DESC LIMIT 100")
+ ]);
+ const counts={motorista:0,transportadora:0,administrador:0};
+ for(const item of users)counts[item.role]=Number(item.total);
+ const statuses={};let totalOrders=0;
+ for(const item of orders){statuses[item.status]=Number(item.total);totalOrders+=Number(item.total);}
+ sendJson(res,200,{users:counts,orders:{total:totalOrders,byStatus:statuses},recentOrders:recent.map(o=>({...o,id:String(o.id)}))});
+ return true;
+}
+
 function mapOrder(row) {
  return {id:String(row.id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',instructions:row.instructions||'',status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
 }
@@ -420,6 +439,7 @@ function mapsBrowserConfig(req,res,path){
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
+  if (path.startsWith('/api/admin/')) {if(await adminRoutes(req,res,path)) return;}
   if (mapsBrowserConfig(req,res,path)) return;
   if (await locationAliasRoutes(req,res,path)) return;
   if (await googleAddressSearch(req,res,path)) return;
