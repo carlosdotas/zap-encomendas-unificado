@@ -845,7 +845,23 @@ useEffect(()=>{
  refreshOrders();const timer=setInterval(refreshOrders,12000);
  return()=>{active=false;clearInterval(timer)};
 },[]);
-const [incomingCall,setIncomingCall]=useState(null);const [callExpanded,setCallExpanded]=useState(false);const calledPlacesRef=useRef(new Set());const acceptedPlacesRef=useRef(new Set());const callAudioRef=useRef(null);
+const [incomingCall,setIncomingCall]=useState(null);const [callExpanded,setCallExpanded]=useState(false);const incomingMarkerRef=useRef(null);
+// Exibe o destino da chamada no mapa antes de o motorista aceitar o serviço.
+useEffect(()=>{
+ const map=mapRef.current;
+ if(incomingMarkerRef.current){incomingMarkerRef.current.remove();incomingMarkerRef.current=null;}
+ if(!map||!window.L||!incomingCall)return;
+ const lat=Number(incomingCall.lat),lng=Number(incomingCall.lng);
+ if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
+ const icon=L.divIcon({className:'zap-incoming-location-icon',html:'<div style="width:38px;height:38px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#f58220;border:3px solid white;box-shadow:0 2px 12px #0006;display:grid;place-items:center"><span style="transform:rotate(45deg);color:white;font-size:21px;font-weight:bold">●</span></div>',iconSize:[38,38],iconAnchor:[19,38]});
+ const marker=L.marker([lat,lng],{icon,zIndexOffset:2000,title:'Local da chamada: '+incomingCall.place}).addTo(map);
+ marker.bindTooltip('Local da chamada: '+incomingCall.place,{direction:'top',offset:[0,-36]});
+ incomingMarkerRef.current=marker;
+ const driver=gpsPointRef.current;
+ if(driver&&driver.every(Number.isFinite))map.fitBounds(L.latLngBounds([driver,[lat,lng]]),{paddingTopLeft:[45,70],paddingBottomRight:[45,Math.round(window.innerHeight*.38)],maxZoom:16,animate:true});
+ else map.flyTo([lat,lng],16,{duration:.6});
+ return()=>{marker.remove();if(incomingMarkerRef.current===marker)incomingMarkerRef.current=null};
+},[incomingCall,registeredRequests,activeVehicle]);const calledPlacesRef=useRef(new Set());const acceptedPlacesRef=useRef(new Set());const callAudioRef=useRef(null);
 function stopCallSound(){if(callAudioRef.current){clearInterval(callAudioRef.current.timer);try{callAudioRef.current.ctx.close()}catch{}callAudioRef.current=null}}
 function playCallSound(){stopCallSound();try{const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;const ctx=new AudioContext();function beep(){if(ctx.state==='closed')return;const now=ctx.currentTime;[0,.22].forEach(offset=>{const oscillator=ctx.createOscillator(),gain=ctx.createGain();oscillator.type='sine';oscillator.frequency.value=740;gain.gain.setValueAtTime(.0001,now+offset);gain.gain.exponentialRampToValueAtTime(.12,now+offset+.025);gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.17);oscillator.connect(gain);gain.connect(ctx.destination);oscillator.start(now+offset);oscillator.stop(now+offset+.18)})}ctx.resume().then(beep).catch(()=>{});callAudioRef.current={ctx,timer:setInterval(beep,1700)}}catch{}}
 function testIncomingCall(){
