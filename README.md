@@ -203,3 +203,20 @@ essas margens; nas versões anteriores, o sistema ajusta a janela normalmente.
 O fundo das barras do aplicativo é claro, com relógio, bateria e botões escuros,
 independentemente do CSS do site. A tela nativa de chamada mantém fundo escuro
 com ícones claros e também protege seu conteúdo contra as barras e recortes.
+
+### Fechar janelas e botão Voltar
+
+`navigation.js` é compartilhado pelo site e pela ponte Android. O comando Voltar
+fecha primeiro a camada aberta (foto ampliada, câmera, detalhes de chamada,
+seletor, formulário, menu), depois retorna das telas internas, como perfil e
+login. Só uma tela principal permite recolher a interface Android. Isso não faz
+logout nem encerra a jornada em segundo plano. Fechar detalhes de uma chamada
+não aceita nem recusa o pedido.
+
+O navegador usa o mesmo comando no histórico e na tecla Escape. Os botões X e
+Voltar das telas continuam disponíveis. Ao publicar na hospedagem, inclua também
+`navigation.js` e o `server.js` atualizado; o APK inclui uma cópia da mesma ponte
+para receber o botão Voltar do Android. As solicitações nativas de permissão
+podem ser canceladas com Voltar, mantendo o motorista offline.
+
+Teste da prioridade de fechamento e do histórico: `node test/navigation.test.js`.

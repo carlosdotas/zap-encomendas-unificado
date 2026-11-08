@@ -708,6 +708,11 @@ const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
   if (apkDownload(req,res,path)) return;
+  if ((req.method==='GET'||req.method==='HEAD')&&path==='/navigation.js') {
+    const script=fs.readFileSync(pathModule.join(__dirname,'navigation.js'));
+    res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+    res.end(req.method==='HEAD'?undefined:script);return;
+  }
   if (path.startsWith('/api/admin/')) {if(await adminRoutes(req,res,path)) return;}
   if (mapsBrowserConfig(req,res,path)) return;
   if (await locationAliasRoutes(req,res,path)) return;

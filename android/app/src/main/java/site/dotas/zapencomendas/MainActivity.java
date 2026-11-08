@@ -10,6 +10,7 @@ import android.os.*;
 import android.provider.Settings;
 import android.webkit.CookieManager;
 import androidx.core.content.ContextCompat;
+import androidx.activity.OnBackPressedCallback;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 import com.getcapacitor.BridgeActivity;
@@ -18,10 +19,25 @@ import java.util.*;
 
 public class MainActivity extends BridgeActivity {
     private boolean pendingStart=false, registered=false, permissionDialog=false, permissionRequestInFlight=false;
+    private boolean backRequestInFlight=false;
     private final BroadcastReceiver events=new BroadcastReceiver(){public void onReceive(Context c,Intent i){dispatch(i.getStringExtra("type"),i.getStringExtra("data"));}};
     @Override protected void load(){
         super.load();
         SystemBars.configure(this,ContextCompat.getColor(this,R.color.zap_system_bar_surface));
+        getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){
+            @Override public void handleOnBackPressed(){
+                if(backRequestInFlight)return;
+                backRequestInFlight=true;
+                bridge.getWebView().evaluateJavascript("window.ZapNavigation?window.ZapNavigation.back():'unavailable'",result->{
+                    backRequestInFlight=false;
+                    if("\"root\"".equals(result)){moveTaskToBack(true);return;}
+                    if("\"handled\"".equals(result)||"\"wait\"".equals(result))return;
+                    if(!"\"unavailable\"".equals(result))return;
+                    // Compatibility while the hosted HTML is still being updated.
+                    if(bridge.getWebView().canGoBack())bridge.getWebView().goBack();else moveTaskToBack(true);
+                });
+            }
+        });
         bridge.getWebView().setDownloadListener((url,agent,disposition,mime,length)->{
             Uri target=Uri.parse(url);
             if("https".equals(target.getScheme())&&"dotas.site".equals(target.getHost())&&"/downloads/zap-encomendas.apk".equals(target.getPath())){
@@ -41,16 +57,18 @@ public class MainActivity extends BridgeActivity {
                 else if(type.equals("send")){Intent i=new Intent(this,DriverService.class).setAction("send").putExtra("data",m.getString("data"));if(DriverService.running)startService(i);}
             }catch(Exception ignored){}
         });
-        try(java.io.InputStream in=getAssets().open("driver-bridge.js")){
-            java.io.ByteArrayOutputStream buffer=new java.io.ByteArrayOutputStream();
-            byte[] bytes=new byte[4096];int count;while((count=in.read(bytes))!=-1)buffer.write(bytes,0,count);
-            String js=new String(buffer.toByteArray(),java.nio.charset.StandardCharsets.UTF_8);
-            if(WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT))WebViewCompat.addDocumentStartJavaScript(bridge.getWebView(),js,origins);
-            bridge.getWebView().reload();
-        }catch(Exception e){throw new IllegalStateException(e);}
+        for(String asset:new String[]{"navigation.js","driver-bridge.js"}){
+            try(java.io.InputStream in=getAssets().open(asset)){
+                java.io.ByteArrayOutputStream buffer=new java.io.ByteArrayOutputStream();
+                byte[] bytes=new byte[4096];int count;while((count=in.read(bytes))!=-1)buffer.write(bytes,0,count);
+                String js=new String(buffer.toByteArray(),java.nio.charset.StandardCharsets.UTF_8);
+                if(WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT))WebViewCompat.addDocumentStartJavaScript(bridge.getWebView(),js,origins);
+            }catch(Exception e){throw new IllegalStateException(e);}
+        }
+        bridge.getWebView().reload();
     }
     private boolean granted(String p){return ContextCompat.checkSelfPermission(this,p)==PackageManager.PERMISSION_GRANTED;}
-    private void explain(String text,Runnable next){if(permissionDialog)return;permissionDialog=true;new AlertDialog.Builder(this).setTitle("Jornada do motorista").setMessage(text).setPositiveButton("Continuar",(d,w)->{permissionDialog=false;next.run();}).setNegativeButton("Agora não",(d,w)->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");}).setCancelable(false).show();}
+    private void explain(String text,Runnable next){if(permissionDialog)return;permissionDialog=true;new AlertDialog.Builder(this).setTitle("Jornada do motorista").setMessage(text).setPositiveButton("Continuar",(d,w)->{permissionDialog=false;next.run();}).setNegativeButton("Agora não",(d,w)->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");}).setCancelable(true).setOnCancelListener(d->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");}).show();}
     private void requestDriverPermissions(String... permissions){
         if(permissionRequestInFlight)return;
         permissionRequestInFlight=true;
@@ -119,7 +137,7 @@ public class MainActivity extends BridgeActivity {
                 else startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));
             })
             .setNegativeButton("Agora não",(d,w)->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");})
-            .setCancelable(false).show();
+            .setCancelable(true).setOnCancelListener(d->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");}).show();
     }
     @Override public void onStart(){super.onStart();if(!registered){ContextCompat.registerReceiver(this,events,new IntentFilter(DriverService.EVENT),ContextCompat.RECEIVER_NOT_EXPORTED);registered=true;}}
     @Override public void onResume(){super.onResume();if(bridge!=null){if(pendingStart)bridge.getWebView().postDelayed(this::prepareDriver,400);if(DriverService.connected)dispatch("open","{}");if(DriverService.running)DriverService.replay(this);}}
