@@ -7,6 +7,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const pathModule = require('node:path');
 const mysql = require('mysql2/promise');
+const crypto = require('node:crypto');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -34,6 +35,10 @@ const migrations = [
     "CREATE TABLE IF NOT EXISTS drivers (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, carrier_id BIGINT UNSIGNED NOT NULL DEFAULT 1, name VARCHAR(160) NOT NULL, phone VARCHAR(30) NOT NULL, vehicle_type VARCHAR(30) NULL, active TINYINT(1) NOT NULL DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_driver_phone (carrier_id,phone)) ENGINE=InnoDB",
     "CREATE TABLE IF NOT EXISTS orders (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, carrier_id BIGINT UNSIGNED NOT NULL DEFAULT 1, client_id BIGINT UNSIGNED NULL, driver_id BIGINT UNSIGNED NULL, place VARCHAR(255) NOT NULL, address VARCHAR(600) NULL, latitude DECIMAL(10,7) NULL, longitude DECIMAL(10,7) NULL, service_type VARCHAR(40) NOT NULL DEFAULT 'coleta', vehicle_type VARCHAR(40) NOT NULL DEFAULT 'moto', instructions TEXT NULL, status VARCHAR(40) NOT NULL DEFAULT 'aguardando_motorista', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, KEY idx_orders_status (status), KEY idx_orders_client (client_id), KEY idx_orders_driver (driver_id)) ENGINE=InnoDB",
     "CREATE TABLE IF NOT EXISTS api_events (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, event_type VARCHAR(100) NOT NULL, detail VARCHAR(500) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_events_date (created_at)) ENGINE=InnoDB"
+  ]],
+  [2, [
+    "CREATE TABLE IF NOT EXISTS app_users (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(160) NOT NULL, phone VARCHAR(20) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role ENUM('motorista','transportadora') NOT NULL DEFAULT 'motorista', vehicles VARCHAR(100) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB",
+    "CREATE TABLE IF NOT EXISTS auth_sessions (token_hash CHAR(64) PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_sessions_user (user_id), KEY idx_sessions_expiry (expires_at)) ENGINE=InnoDB"
   ]]
 ];
 
@@ -76,8 +81,120 @@ function homeHtml() {
   const label = dbOk ? 'Banco MySQL conectado' : 'Banco MySQL aguardando conexão';
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Zap Encomendas • Servidor</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f2f7f5;color:#173a35;font:16px system-ui,Arial,sans-serif;padding:20px}.card{width:min(100%,520px);background:white;padding:36px;border-radius:20px;box-shadow:0 12px 40px #123a2920}.logo{font-weight:800;color:#08765b;letter-spacing:.03em}.pill{display:inline-block;margin:18px 0 6px;padding:9px 13px;border-radius:40px;background:#e4f6ed;color:#076b45;font-weight:700}.warn{background:#fff1da;color:#945b00}h1{font-size:clamp(26px,5vw,38px);margin:12px 0}p{color:#536b64;line-height:1.6}.status{padding:16px;background:#f5f8f7;border-radius:12px;margin-top:20px}a{color:#08765b}</style></head><body><main class="card"><div class="logo">ZAP ENCOMENDAS</div><div class="pill">✓ Projeto Node.js online</div><h1>Servidor iniciado com sucesso!</h1><p>O aplicativo está respondendo. Esta é a primeira etapa da plataforma unificada.</p><div class="status"><strong class="${dbOk?'':'warn'}">${escapeHtml(label)}</strong><p>${escapeHtml(databaseStatus.message)}</p><p>Migrações: ${escapeHtml(migrationStatus)}</p></div><p>Verificação técnica: <a href="/health">/health</a></p><small>O frontend completo será integrado em uma próxima etapa.</small></main></body></html>`;
 }
+
+const attempts = new Map();
+function rateLimit(req, key) {
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const id = ip + ':' + key;
+  const now = Date.now();
+  if (attempts.size > 3000) for (const [k,v] of attempts) if (v.until < now) attempts.delete(k);
+  const value = attempts.get(id);
+  if (!value || value.until < now) { attempts.set(id,{count:1,until:now+15*60*1000}); return false; }
+  value.count++;
+  return value.count > 12;
+}
+function readBody(req) {
+  return new Promise((resolve,reject) => {
+    let body = '', done = false;
+    req.on('data', chunk => {
+      if(done) return;
+      body += chunk;
+      if (body.length > 10000) {done=true; reject(new Error('Requisição muito grande')); req.destroy();}
+    });
+    req.on('end', () => {if(!done) {try {resolve(JSON.parse(body || '{}'));} catch {reject(new Error('JSON inválido'));}}});
+    req.on('error', reject);
+  });
+}
+function phoneDigits(value) {
+  const digits = String(value || '').replace(/\D/g,'');
+  return digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+}
+function hashPassword(password,salt) {
+  return crypto.scryptSync(password,salt,64).toString('hex');
+}
+function secureEquals(a,b) {
+  const x=Buffer.from(a,'hex'), y=Buffer.from(b,'hex');
+  return x.length===y.length && crypto.timingSafeEqual(x,y);
+}
+function setSessionCookie(req,res,token,maxAge) {
+  const secure = req.socket.encrypted || req.headers['x-forwarded-proto']==='https';
+  res.setHeader('Set-Cookie','zap_session='+token+'; Path=/; HttpOnly; SameSite=Lax; Max-Age='+maxAge+(secure?'; Secure':''));
+}
+async function getSession(req) {
+  if(!pool || !databaseStatus.ok) return null;
+  const cookie=String(req.headers.cookie || '').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
+  if(!cookie) return null;
+  const hash=crypto.createHash('sha256').update(cookie[1]).digest('hex');
+  const [rows]=await pool.execute('SELECT u.id,u.full_name,u.phone,u.role,u.vehicles FROM auth_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>NOW() LIMIT 1',[hash]);
+  return rows[0] || null;
+}
+function publicUser(user) {
+  return {id:user.id,name:user.full_name,phone:user.phone,role:user.role,vehicles:(user.vehicles || '').split(',').filter(Boolean)};
+}
+async function loginSession(req,res,user) {
+  const token=crypto.randomBytes(32).toString('hex');
+  const tokenHash=crypto.createHash('sha256').update(token).digest('hex');
+  await pool.execute('INSERT INTO auth_sessions (token_hash,user_id,expires_at) VALUES (?,?,DATE_ADD(NOW(),INTERVAL 7 DAY))',[tokenHash,user.id]);
+  setSessionCookie(req,res,token,7*24*60*60);
+  sendJson(res,200,{ok:true,user:publicUser(user)});
+}
+async function authRoutes(req,res,path) {
+  if(path==='/api/auth/me' && req.method==='GET') {
+    const user=await getSession(req);
+    sendJson(res,user?200:401,user?{ok:true,user:publicUser(user)}:{ok:false,error:'Sessão não encontrada'});
+    return true;
+  }
+  if(!['/api/auth/register','/api/auth/login','/api/auth/logout'].includes(path) || req.method!=='POST') return false;
+  if(req.headers.origin) {
+    let originHost='';
+    try{originHost=new URL(req.headers.origin).host;}catch{}
+    const host=String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+    if(!originHost || originHost!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}
+  }
+  if(!pool || !databaseStatus.ok || migrationStatus!=='atualizado') {sendJson(res,503,{error:'Banco de dados indisponível'});return true;}
+  if(rateLimit(req,path)) {sendJson(res,429,{error:'Muitas tentativas. Aguarde 15 minutos.'});return true;}
+  const body=await readBody(req);
+  if(path==='/api/auth/logout') {
+    const match=String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
+    if(match) await pool.execute('DELETE FROM auth_sessions WHERE token_hash=?',[crypto.createHash('sha256').update(match[1]).digest('hex')]);
+    setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;
+  }
+  const phone=phoneDigits(body.phone), password=body.password;
+  if(!/^\d{10,11}$/.test(phone) || typeof password!=='string' || password.length<10 || Buffer.byteLength(password)>256) {
+    sendJson(res,400,{error:'Informe telefone com DDD e senha de pelo menos 10 caracteres.'});return true;
+  }
+  if(path==='/api/auth/register') {
+    const name=String(body.name||'').trim().replace(/\s+/g,' ');
+    const role=body.role==='transportadora'?'transportadora':'motorista';
+    const vehicles=Array.isArray(body.vehicles)?body.vehicles.filter(v=>['moto','carro','utilitario'].includes(v)).slice(0,3):[];
+    if(name.length<3 || name.length>160 || (role==='motorista' && vehicles.length===0)) {
+      sendJson(res,400,{error:'Informe nome completo e pelo menos um veículo para motorista.'});return true;
+    }
+    const salt=crypto.randomBytes(16).toString('hex');
+    const encoded='scrypt:'+salt+':'+hashPassword(password,salt);
+    try {
+      const [result]=await pool.execute('INSERT INTO app_users (full_name,phone,password_hash,role,vehicles) VALUES (?,?,?,?,?)',[name,phone,encoded,role,vehicles.join(',')]);
+      await loginSession(req,res,{id:result.insertId,full_name:name,phone,role,vehicles:vehicles.join(',')});
+    } catch(err) {
+      if(err.code==='ER_DUP_ENTRY'){sendJson(res,409,{error:'Telefone já cadastrado. Faça login.'});return true;}
+      throw err;
+    }
+    return true;
+  }
+  const [rows]=await pool.execute('SELECT id,full_name,phone,password_hash,role,vehicles FROM app_users WHERE phone=? LIMIT 1',[phone]);
+  const user=rows[0];
+  const parts=user?.password_hash?.split(':')||[];
+  const valid=parts.length===3 && parts[0]==='scrypt' && secureEquals(parts[2],hashPassword(password,parts[1]));
+  if(!valid) {sendJson(res,401,{error:'Telefone ou senha incorretos.'});return true;}
+  await loginSession(req,res,user);return true;
+}
+
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
+  try {
+  if (path.startsWith('/api/auth/')) {
+    if(await authRoutes(req,res,path)) return;
+  }
   if (req.method === 'GET' && path === '/') {
     fs.readFile(pathModule.join(__dirname, 'index.html'), (err, html) => {
       if (err) { console.error('[HTML]', err.message); sendJson(res, 500, {error:'Frontend indisponível'}); return; }
@@ -108,6 +225,7 @@ const server = http.createServer(async (req,res) => {
     return;
   }
   sendJson(res,404,{error:'Rota não encontrada'});
+  } catch(err) {console.error('[HTTP]',err.message);if(!res.headersSent) sendJson(res,500,{error:'Erro interno do servidor'});}
 });
 server.listen(PORT, HOST, () => {
   console.log('[ZAP] Servidor online na porta '+PORT);
