@@ -1340,11 +1340,40 @@ function readZapState(key){try{const v=localStorage.getItem(key);return v?JSON.p
 function writeZapState(key,value){zapSessionMemory[key==='zap_auth_state'?'auth':'profile']=value;try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,JSON.stringify(value))}catch{}}
 function App(){
  const [page,setPage]=useState('loading');
+ const pageRef=useRef(page),returnPageRef=useRef('map');
+ pageRef.current=page;
+ React.useEffect(()=>{
+  const overlays='.carrier-order-detail-backdrop,.job-modal-backdrop,.carrier-drivers-overlay,.carrier-profile-overlay,.carrier-places-overlay,.carrier-places-backdrop,.dialog-backdrop,[role="dialog"]';
+  const closeTopLayer=()=>{
+   const nodes=[...document.querySelectorAll(overlays)].filter(el=>{const r=el.getBoundingClientRect(),st=getComputedStyle(el);return r.width>0&&r.height>0&&st.visibility!=='hidden'&&st.display!=='none'});
+   if(!nodes.length)return false;
+   const top=nodes[nodes.length-1];
+   const button=top.querySelector('button[aria-label*="Fechar"],button[aria-label*="Voltar"],.job-modal-close,.carrier-profile-close');
+   if(button){button.click();return true}
+   if(top.classList.contains('job-modal-backdrop')||top.classList.contains('carrier-order-detail-backdrop')||top.classList.contains('carrier-drivers-overlay')){top.click();return true}
+   return false;
+  };
+  const onBack=()=>{
+   if(closeTopLayer()){history.pushState({zapBackGuard:true},'','#zap-app');return}
+   const current=pageRef.current;
+   if(current==='profile'){setPage(returnPageRef.current);history.pushState({zapBackGuard:true},'','#zap-app');return}
+   if(current==='auth'){setPage('choose');history.pushState({zapBackGuard:true},'','#zap-app');return}
+   if(current==='map'||current==='carrier'||current==='admin'||current==='choose'){
+    // Na tela principal, o segundo voltar segue para fora do aplicativo.
+    return;
+   }
+   history.pushState({zapBackGuard:true},'','#zap-app');
+  };
+  history.pushState({zapBackGuard:true},'','#zap-app');
+  window.addEventListener('popstate',onBack);
+  return()=>window.removeEventListener('popstate',onBack);
+ },[]);
+
  React.useEffect(()=>{fetch('/api/auth/me',{credentials:'same-origin'}).then(async r=>{if(!r.ok)throw new Error('Sem sessão');return r.json()}).then(data=>{const u=data.user;setRole(u.role);setProfile(p=>({...p,id:String(u.id),name:u.name,phone:u.phone,vehicles:u.vehicles.length?u.vehicles:p.vehicles}));setPage(u.role==='administrador'?'admin':u.role==='transportadora'?'carrier':'map')}).catch(()=>setPage('choose'))},[]);
  const [role,setRole]=useState('motorista');
  const [profile,setProfile]=useState(()=>readZapState('zap_profile_demo')||{name:'Motorista',phone:'',photo:'',vehicles:['moto','carro','utilitario']});
  const [activeVehicle,setActiveVehicle]=useState(()=>readZapState('zap_auth_state')?.activeVehicle||'moto');
- const [returnPage,setReturnPage]=useState('map');
+ const [returnPage,setReturnPage]=useState('map');returnPageRef.current=returnPage;
  const saveProfile=p=>{setProfile(p);writeZapState('zap_profile_demo',p)};
  const logout=async()=>{try{const response=await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'});if(!response.ok)throw new Error('Falha ao sair');writeZapState('zap_auth_state',null);setPage('choose')}catch{window.alert('Não foi possível encerrar a sessão. Verifique sua conexão e tente novamente.')}};
  const login=(user)=>{setRole(user.role);if(user.role==='administrador'){setPage('admin');return}if(user.role==='transportadora'){const v=user.vehicles.length?user.vehicles:['moto'];saveProfile({...profile,id:String(user.id),name:user.name,phone:user.phone,vehicles:v});setActiveVehicle(v[0]);setPage('carrier');return}const v=user.vehicles.length?user.vehicles:['moto'];saveProfile({...profile,id:String(user.id),name:user.name,phone:user.phone,vehicles:v});setActiveVehicle(v[0]);setPage('map')};
