@@ -763,6 +763,26 @@
 .carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-places-trigger{width:54px!important;height:54px!important;flex:0 0 54px!important;background:#eaf0f7!important;color:#153452!important;border-radius:17px!important}
 .carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-places-trigger svg{width:26px!important;height:26px!important}
 @media(max-width:380px){.carrier-map-page:not(.carrier-config-open) .carrier-map-controls{left:12px!important;right:12px!important}.carrier-map-page:not(.carrier-config-open) .carrier-map-tools{right:12px!important}.carrier-map-page:not(.carrier-config-open) .carrier-search{gap:4px!important;padding:5px!important}.carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-search-action,.carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-places-trigger{width:46px!important;height:48px!important;flex-basis:46px!important}.carrier-map-page:not(.carrier-config-open) .carrier-search-pin{flex-basis:20px}.carrier-map-page:not(.carrier-config-open) .carrier-search-pin svg{width:21px;height:21px}}
+</style><style>
+/* Ajuste fino: controles compactos sem perder área de toque. */
+.carrier-map-page:not(.carrier-config-open) .carrier-map-controls{top:max(13px,env(safe-area-inset-top))!important;left:14px!important;right:14px!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-map-control,
+.carrier-map-page:not(.carrier-config-open) .carrier-map-controls .carrier-map-control{width:46px!important;height:46px!important;border-radius:14px!important;box-shadow:0 3px 10px #152f4b29!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-map-controls svg{width:24px!important;height:24px!important;stroke-width:2.3!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-map-tools{right:14px!important;bottom:calc(124px + env(safe-area-inset-bottom))!important;gap:8px!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-map-tools svg{width:23px!important;height:23px!important;stroke-width:2.2!important}
+.carrier-map-page:not(.carrier-config-open):not(.carrier-search-expanded) .carrier-map-bottom{left:12px!important;right:12px!important;bottom:calc(9px + env(safe-area-inset-bottom))!important;border-radius:22px!important;padding:16px 9px 9px!important;box-shadow:0 4px 16px #17365026!important}
+.carrier-map-page:not(.carrier-config-open):not(.carrier-search-expanded) .carrier-map-bottom:before{top:6px!important;width:44px!important;height:4px!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-search{min-height:49px!important;border-radius:15px!important;padding:4px!important;gap:5px!important;box-shadow:0 2px 9px #102e4b1c!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-search-input-wrap{gap:5px!important;padding-left:4px!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-search-pin{flex-basis:20px!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-search-pin svg{width:20px!important;height:20px!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-search-input-wrap input{font-size:14px!important;padding:5px 0!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-search-action,
+.carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-places-trigger{width:42px!important;height:42px!important;flex:0 0 42px!important;border-radius:12px!important;padding:9px!important}
+.carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-search-action svg,
+.carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-places-trigger svg{width:21px!important;height:21px!important}
+@media(max-width:360px){.carrier-map-page:not(.carrier-config-open) .carrier-search-input-wrap input{font-size:12px!important}.carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-search-action,.carrier-map-page:not(.carrier-config-open) .carrier-search .carrier-places-trigger{width:39px!important;height:41px!important;flex-basis:39px!important}}
 </style></head>
 <body><div id="root"></div>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
