@@ -428,7 +428,7 @@ async function orderRoutes(req,res,path) {
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para gerenciar pedidos'});return true;}
  if(req.method==='GET' && (path==='/api/driver/orders' || (path==='/api/orders' && user.role==='motorista')) && ['motorista','transportadora'].includes(user.role)){
-   const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE o.status='aguardando_motorista' OR (o.driver_id=? AND o.status='aceito') ORDER BY o.created_at ASC LIMIT 500",[user.id]);
+   const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE (o.status='aguardando_motorista' AND (NOT EXISTS (SELECT 1 FROM zap_carrier_driver_settings cs WHERE cs.carrier_id=o.owner_user_id) OR EXISTS (SELECT 1 FROM zap_carrier_allowed_drivers ad WHERE ad.carrier_id=o.owner_user_id AND ad.driver_id=?))) OR (o.driver_id=? AND o.status='aceito') ORDER BY o.created_at ASC LIMIT 500",[user.id,user.id]);
    sendJson(res,200,{orders:rows.map(row=>({...mapOrder(row),carrier:row.carrier_name||'Transportadora'}))});return true;
  }
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras podem cadastrar pedidos'});return true;}
@@ -649,8 +649,10 @@ function eligibleCallDrivers(vehicle,orderId){
 function stopOffer(queue){if(queue.timer)clearTimeout(queue.timer);queue.timer=null;if(queue.driverId){for(const ws of callSockets.get(queue.driverId)||[])callSend(ws,{type:'call_end',orderId:queue.order.id});nativePush.send(queue.driverId,{type:'call_end',orderId:queue.order.id,offerExpiresAt:queue.offerExpiresAt},pool);}queue.driverId=null}
 function dispatchWaitingOrders(){for(const queue of callQueues.values())if(!queue.driverId&&eligibleCallDrivers(queue.order.vehicle,queue.order.id).length){if(queue.timer)clearTimeout(queue.timer);queue.timer=null;nextOffer(queue)}}
 async function nextOffer(queue){
- if(!callQueues.has(queue.order.id))return;
- try{queue.allowedDrivers=await getCarrierAllowed(queue.order.ownerId)}catch(err){console.error('[CALL PERMISSIONS]',err.message);queue.timer=setTimeout(()=>nextOffer(queue),3000);return}
+ if(!callQueues.has(queue.order.id)||queue.loadingPermissions)return;
+ queue.loadingPermissions=true;
+ try{queue.allowedDrivers=await getCarrierAllowed(queue.order.ownerId)}catch(err){queue.loadingPermissions=false;console.error('[CALL PERMISSIONS]',err.message);queue.timer=setTimeout(()=>nextOffer(queue),3000);return}
+ queue.loadingPermissions=false;
  if(!callQueues.has(queue.order.id))return;
  stopOffer(queue);
  const drivers=eligibleCallDrivers(queue.order.vehicle,queue.order.id);
