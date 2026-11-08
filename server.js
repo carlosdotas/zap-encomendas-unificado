@@ -45,6 +45,9 @@ const migrations = [
   ]],
   [3, [
     "CREATE TABLE IF NOT EXISTS zap_login_sessions (token_hash CHAR(64) PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_zap_login_user (user_id), KEY idx_zap_login_expiry (expires_at)) ENGINE=InnoDB"
+  ]],
+  [4, [
+    "CREATE TABLE IF NOT EXISTS zap_order_entries (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, owner_user_id BIGINT UNSIGNED NOT NULL, place VARCHAR(255) NOT NULL, address VARCHAR(600) NULL, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, service_type ENUM('coleta','entrega','troca') NOT NULL, vehicle_type ENUM('moto','carro','utilitario') NOT NULL, client_name VARCHAR(160) NOT NULL, client_phone VARCHAR(20) NULL, instructions TEXT NULL, status VARCHAR(40) NOT NULL DEFAULT 'aguardando_motorista', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, KEY idx_zap_orders_owner (owner_user_id), KEY idx_zap_orders_status (status)) ENGINE=InnoDB"
   ]]
 ];
 
@@ -253,9 +256,56 @@ async function authRoutes(req,res,path) {
   await loginSession(req,res,user);return true;
 }
 
+
+function mapOrder(row) {
+ return {id:String(row.id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',instructions:row.instructions||'',status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
+}
+async function orderRoutes(req,res,path) {
+ if(!path.startsWith('/api/orders')) return false;
+ if(!['GET','POST','PUT'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true;}
+ if(req.method!=='GET' && req.headers.origin) {
+   let originHost='';try{originHost=new URL(req.headers.origin).host}catch{}
+   const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();
+   if(!originHost || originHost!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}
+ }
+ await ensureDatabase();
+ if(!databaseStatus.ok || migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível',diagnostic:databaseDiagnostics()});return true;}
+ const user=await getSession(req);
+ if(!user){sendJson(res,401,{error:'Faça login para gerenciar pedidos'});return true;}
+ if(user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras podem cadastrar pedidos'});return true;}
+ if(req.method==='GET' && path==='/api/orders') {
+   const [rows]=await pool.execute('SELECT * FROM zap_order_entries WHERE owner_user_id=? ORDER BY id DESC LIMIT 500',[user.id]);
+   sendJson(res,200,{orders:rows.map(mapOrder)});return true;
+ }
+ const match=path.match(/^\/api\/orders\/(\d+)$/);
+ if(!((req.method==='POST' && path==='/api/orders')||(req.method==='PUT' && match))) {sendJson(res,404,{error:'Pedido não encontrado'});return true;}
+ if(rateLimit(req,'orders')){sendJson(res,429,{error:'Muitas tentativas. Aguarde alguns minutos.'});return true;}
+ let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true;}
+ const place=String(body.place||'').trim(),address=String(body.address||'').trim(),client=String(body.client||'').trim();
+ const phone=phoneDigits(body.clientPhone||''),instructions=String(body.instructions||'').trim();
+ const lat=Number(body.lat),lng=Number(body.lng);
+ const type=body.type,vehicle=body.vehicle;
+ if(place.length<2||place.length>255||address.length>600||client.length<2||client.length>160||instructions.length>5000||!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180||!['coleta','entrega','troca'].includes(type)||!['moto','carro','utilitario'].includes(vehicle)|| (phone && !/^\d{10,11}$/.test(phone))) {
+   sendJson(res,400,{error:'Confira local, coordenadas, cliente, telefone e tipo do pedido.'});return true;
+ }
+ const params=[place,address,lat,lng,type,vehicle,client,phone||null,instructions];
+ let id;
+ if(req.method==='POST'){
+   const [result]=await pool.execute('INSERT INTO zap_order_entries (place,address,latitude,longitude,service_type,vehicle_type,client_name,client_phone,instructions,owner_user_id) VALUES (?,?,?,?,?,?,?,?,?,?)',[...params,user.id]);
+   id=result.insertId;
+ } else {
+   id=match[1];
+   const [result]=await pool.execute('UPDATE zap_order_entries SET place=?,address=?,latitude=?,longitude=?,service_type=?,vehicle_type=?,client_name=?,client_phone=?,instructions=? WHERE id=? AND owner_user_id=?',[...params,id,user.id]);
+   if(!result.affectedRows){sendJson(res,404,{error:'Pedido não encontrado para esta transportadora'});return true;}
+ }
+ const [rows]=await pool.execute('SELECT * FROM zap_order_entries WHERE id=? AND owner_user_id=?',[id,user.id]);
+ sendJson(res,req.method==='POST'?201:200,{ok:true,order:mapOrder(rows[0])});return true;
+}
+
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
+  if (path.startsWith('/api/orders')) {if(await orderRoutes(req,res,path)) return;}
   if (path.startsWith('/api/auth/')) {
     if(await authRoutes(req,res,path)) return;
   }
