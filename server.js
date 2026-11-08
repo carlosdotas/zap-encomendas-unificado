@@ -48,8 +48,10 @@ const migrations = [
   ]],
   [4, [
     "CREATE TABLE IF NOT EXISTS zap_order_entries (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, owner_user_id BIGINT UNSIGNED NOT NULL, place VARCHAR(255) NOT NULL, address VARCHAR(600) NULL, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, service_type ENUM('coleta','entrega','troca') NOT NULL, vehicle_type ENUM('moto','carro','utilitario') NOT NULL, client_name VARCHAR(160) NOT NULL, client_phone VARCHAR(20) NULL, instructions TEXT NULL, status VARCHAR(40) NOT NULL DEFAULT 'aguardando_motorista', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, KEY idx_zap_orders_owner (owner_user_id), KEY idx_zap_orders_status (status)) ENGINE=InnoDB"
-  ]]
-];
+  ]],
+  [5, [
+    "CREATE TABLE IF NOT EXISTS zap_locations (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, place_id VARCHAR(255) NULL, name VARCHAR(255) NOT NULL, address VARCHAR(600) NOT NULL, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, source ENUM('google','pedido') NOT NULL DEFAULT 'google', expires_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_zap_location_place (place_id), KEY idx_zap_location_name (name(100)), KEY idx_zap_location_expiry (expires_at)) ENGINE=InnoDB"
+  ]]];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
 function safeErrorCode(err) { return String(err?.code || 'ERRO_DESCONHECIDO').replace(/[^A-Z0-9_]/g,'').slice(0,60); }
@@ -303,30 +305,46 @@ async function orderRoutes(req,res,path) {
 }
 
 
+
+function normalizeLocationSearch(q){return String(q||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
 async function googleAddressSearch(req,res,path) {
- if(path!=='/api/maps/search' || req.method!=='GET') return false;
- const key=process.env.GOOGLE_MAPS_API_KEY;
- if(!key){sendJson(res,503,{error:'Busca Google Maps aguardando configuração de GOOGLE_MAPS_API_KEY na hospedagem.'});return true;}
+ if(path!=='/api/maps/search' || req.method!=='GET')return false;
  const query=new URL(req.url,'http://localhost').searchParams.get('q')?.trim()||'';
  if(query.length<3||query.length>200){sendJson(res,400,{error:'Informe um endereço de 3 a 200 caracteres.'});return true;}
  if(rateLimit(req,'maps-search')){sendJson(res,429,{error:'Limite de buscas atingido. Tente novamente mais tarde.'});return true;}
+ await ensureDatabase();
+ if(!databaseStatus.ok || migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco de locais indisponível',diagnostic:databaseDiagnostics()});return true;}
+ const normalized=normalizeLocationSearch(query);
+ const terms=normalized.split(' ').filter(w=>w.length>=2).slice(0,8);
+ if(!terms.length){sendJson(res,400,{error:'Informe um local válido.'});return true;}
+ const where=terms.map(()=>"(LOWER(name) LIKE ? OR LOWER(address) LIKE ?)").join(' AND ');
+ const params=terms.flatMap(t=>['%'+t+'%','%'+t+'%']);
+ const [saved]=await pool.execute('SELECT place_id,name,address,latitude,longitude FROM zap_locations WHERE (expires_at IS NULL OR expires_at > UTC_TIMESTAMP()) AND '+where+' ORDER BY source DESC, updated_at DESC LIMIT 8',params);
+ if(saved.length){
+  sendJson(res,200,{source:'database',results:saved.map(p=>({place_id:p.place_id,name:p.name,display_name:p.address,lat:Number(p.latitude),lon:Number(p.longitude)}))});return true;
+ }
+ const key=process.env.GOOGLE_MAPS_API_KEY;
+ if(!key){sendJson(res,503,{error:'Nenhum local encontrado no banco. Configure GOOGLE_MAPS_API_KEY na hospedagem.'});return true;}
  try{
-  const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),8000);
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
   let response;
-  try {response=await fetch('https://places.googleapis.com/v1/places:searchText',{
+  try{response=await fetch('https://places.googleapis.com/v1/places:searchText',{
    method:'POST',signal:controller.signal,
    headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location'},
    body:JSON.stringify({textQuery:query,languageCode:'pt-BR',regionCode:'BR',pageSize:8,locationBias:{circle:{center:{latitude:-16.686,longitude:-49.265},radius:50000}}})
   });}finally{clearTimeout(timeout)}
-  if(!response.ok){console.error('[MAPS] Google Places status',response.status);sendJson(res,502,{error:'Google Maps indisponível. Verifique se Places API (New) está habilitada e a chave está autorizada.'});return true;}
+  if(!response.ok){console.error('[MAPS] Google Places status',response.status);sendJson(res,502,{error:'Google Maps indisponível. Verifique Places API (New) e a chave.'});return true;}
   const data=await response.json();
-  const results=(data.places||[]).filter(p=>Number.isFinite(p.location?.latitude)&&Number.isFinite(p.location?.longitude)).map(p=>({
+  const results=(data.places||[]).filter(p=>p.id&&Number.isFinite(p.location?.latitude)&&Number.isFinite(p.location?.longitude)).map(p=>({
    place_id:p.id,name:p.displayName?.text||p.formattedAddress||'Local',display_name:p.formattedAddress||p.displayName?.text||'Local',
    lat:p.location.latitude,lon:p.location.longitude
   }));
-  sendJson(res,200,{results});return true;
- }catch(err){console.error('[MAPS]',err.name||'ERROR');sendJson(res,502,{error:'Não foi possível consultar o Google Maps agora.'});return true;}
+  // Conteúdo obtido do Google é temporário; IDs podem ser mantidos, demais dados expiram.
+  for(const p of results){
+   await pool.execute("INSERT INTO zap_locations (place_id,name,address,latitude,longitude,source,expires_at) VALUES (?,?,?,?,?,'google',DATE_ADD(UTC_TIMESTAMP(),INTERVAL 24 HOUR)) ON DUPLICATE KEY UPDATE name=VALUES(name),address=VALUES(address),latitude=VALUES(latitude),longitude=VALUES(longitude),source='google',expires_at=VALUES(expires_at)",[p.place_id,p.name,p.display_name,p.lat,p.lon]);
+  }
+  sendJson(res,200,{source:'google',results});return true;
+ }catch(err){console.error('[MAPS]',err.code||err.name||'ERROR');sendJson(res,502,{error:'Não foi possível consultar o Google Maps agora.'});return true;}
 }
 
 const server = http.createServer(async (req,res) => {
