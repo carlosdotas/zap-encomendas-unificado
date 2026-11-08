@@ -871,25 +871,48 @@
 .carrier-orders-screen .carrier-orders-stat.total.active .carrier-orders-stat-info>strong{color:#465ab0!important}
 @media(max-width:440px){.carrier-orders-screen .carrier-orders-header{grid-template-columns:42px minmax(0,1fr) 65px!important;gap:8px!important;padding:13px 10px 17px!important}.carrier-orders-screen .carrier-orders-back{height:42px!important}.carrier-orders-screen .carrier-orders-search{height:48px!important;padding:0 11px!important;gap:7px!important}.carrier-orders-screen .carrier-orders-search input{font-size:13px!important}.carrier-orders-screen .carrier-orders-add{height:48px!important}.carrier-orders-screen .carrier-orders-summary{gap:4px!important;padding:10px 5px 16px!important}.carrier-orders-screen .carrier-orders-stat{padding:6px 4px!important;gap:5px!important;min-height:70px!important;border-width:1.5px!important}.carrier-orders-screen .carrier-orders-stat-icon{width:30px!important;height:36px!important;flex-basis:30px!important}.carrier-orders-screen .carrier-orders-stat-icon svg{width:19px!important;height:19px!important}.carrier-orders-screen .carrier-orders-stat-label{font-size:9px!important;gap:2px!important}.carrier-orders-screen .carrier-orders-stat-label small{padding:2px 3px!important}.carrier-orders-screen .carrier-orders-stat-info>strong{font-size:11px!important;letter-spacing:-.3px!important}}
 </style><style>
-/* Transportadoras — lista de pedidos: cabeçalho compacto e ícones consistentes */
-.carrier-orders-screen .carrier-orders-header{gap:9px;padding:8px 12px;background:#fff;min-height:54px;box-sizing:border-box;border-bottom:1px solid #edf0f4}
-.carrier-orders-screen .carrier-orders-back{width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:#f2f5f8;color:#344b60}
-.carrier-orders-screen .carrier-orders-back svg{width:19px;height:19px}
-.carrier-orders-screen .carrier-orders-search{height:38px;border-radius:11px;padding:0 11px;gap:8px;background:#f4f6f8;color:#64778a}
-.carrier-orders-screen .carrier-orders-search svg{width:17px;height:17px}
-.carrier-orders-screen .carrier-orders-search input{font-size:13px;font-weight:500}
-.carrier-orders-screen .carrier-orders-add{width:38px;height:38px;flex:0 0 38px;border-radius:11px;box-shadow:none}
-.carrier-orders-screen .carrier-orders-add svg{width:21px;height:21px}
-.carrier-orders-screen .carrier-orders-header svg,.carrier-orders-screen .carrier-orders-summary svg,.carrier-orders-screen .carrier-orders-content svg{stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none}
-.carrier-orders-screen .carrier-orders-summary{gap:5px;padding:6px 9px 9px}
-.carrier-orders-screen .carrier-orders-stat{gap:5px;padding:6px 4px;border-radius:9px}
-.carrier-orders-screen .carrier-orders-stat-icon{flex:0 0 27px;width:27px;height:30px;border-radius:7px}
-.carrier-orders-screen .carrier-orders-stat-icon svg{width:16px;height:16px}
-.carrier-orders-screen .carrier-orders-stat-info{gap:3px}
-.carrier-orders-screen .carrier-orders-stat-label{font-size:9px;letter-spacing:0}
-.carrier-orders-screen .carrier-orders-stat-label small{font-size:9px;margin-left:1px;padding:1px 2px}
-.carrier-orders-screen .carrier-orders-stat-info>strong{font-size:clamp(10px,2.6vw,14px)}
-@media(max-width:360px){.carrier-orders-screen .carrier-orders-header{gap:6px;padding:7px 8px}.carrier-orders-screen .carrier-orders-summary{gap:2px;padding:5px 4px 8px}.carrier-orders-screen .carrier-orders-stat{gap:3px;padding:5px 2px}.carrier-orders-screen .carrier-orders-stat-icon{flex-basis:23px;width:23px;height:27px}.carrier-orders-screen .carrier-orders-stat-icon svg{width:14px;height:14px}}
+/* Densidade otimizada: lista de pedidos das transportadoras. Sobrescreve estilos antigos com !important. */
+.carrier-orders-screen .carrier-orders-header{display:grid!important;grid-template-columns:36px minmax(0,1fr) 38px!important;gap:8px!important;padding:7px 10px!important;min-height:52px!important;border-bottom:1px solid #edf0f4}
+.carrier-orders-screen .carrier-orders-back{width:36px!important;height:38px!important;border-radius:10px!important}
+.carrier-orders-screen .carrier-orders-back svg{width:19px!important;height:19px!important;stroke-width:2!important}
+.carrier-orders-screen .carrier-orders-search{height:38px!important;padding:0 10px!important;gap:7px!important;border-radius:10px!important}
+.carrier-orders-screen .carrier-orders-search svg{width:17px!important;height:17px!important}
+.carrier-orders-screen .carrier-orders-search input{font-size:13px!important;font-weight:500!important;letter-spacing:0!important}
+.carrier-orders-screen .carrier-orders-add{width:38px!important;height:38px!important;border-radius:10px!important;box-shadow:none!important}
+.carrier-orders-screen .carrier-orders-add svg{width:21px!important;height:21px!important;stroke-width:2!important}
+.carrier-orders-screen .carrier-orders-summary{gap:5px!important;padding:6px 9px 8px!important}
+.carrier-orders-screen .carrier-orders-stat{min-height:52px!important;gap:5px!important;padding:5px 4px!important;border-width:1px!important;border-radius:9px!important;box-shadow:none!important}
+.carrier-orders-screen .carrier-orders-stat-icon{width:26px!important;height:29px!important;flex:0 0 26px!important;border-radius:7px!important}
+.carrier-orders-screen .carrier-orders-stat-icon svg{width:16px!important;height:16px!important;stroke-width:2!important}
+.carrier-orders-screen .carrier-orders-stat-info{gap:3px!important}
+.carrier-orders-screen .carrier-orders-stat-label{font-size:9px!important;gap:2px!important;letter-spacing:0!important}
+.carrier-orders-screen .carrier-orders-stat-label small{font-size:9px!important;padding:1px 3px!important}
+.carrier-orders-screen .carrier-orders-stat-info>strong{font-size:clamp(10px,2.7vw,14px)!important;letter-spacing:-.2px!important}
+.carrier-orders-screen .carrier-orders-content{padding:10px 10px calc(env(safe-area-inset-bottom,0px) + 12px)!important}
+.carrier-orders-screen .carrier-orders-list{gap:12px!important}
+.carrier-orders-screen .carrier-orders-day{gap:7px!important}
+.carrier-orders-screen .carrier-orders-day-head{gap:7px!important;padding:3px 2px 5px!important}
+.carrier-orders-screen .carrier-orders-day-symbol svg{width:17px!important;height:17px!important;stroke-width:2!important}
+.carrier-orders-screen .carrier-orders-day-head>strong{font-size:16px!important;letter-spacing:-.3px!important}
+.carrier-orders-screen .carrier-orders-day-head>small{font-size:10px!important;padding:3px 6px!important;border-radius:6px!important}
+.carrier-orders-screen .carrier-order-card{border-radius:11px!important;box-shadow:0 1px 3px #00000010!important}
+.carrier-orders-screen .carrier-order-card-main{grid-template-columns:38px minmax(0,1fr)!important;gap:8px!important;padding:10px 10px!important}
+.carrier-orders-screen .carrier-order-card-check{top:8px!important;left:8px!important;padding:3px!important;border-radius:6px!important}
+.carrier-orders-screen .carrier-order-card-check input{width:17px!important;height:17px!important}
+.carrier-orders-screen .carrier-order-card-avatar{width:36px!important;height:38px!important;margin-top:17px!important;border-radius:9px!important}
+.carrier-orders-screen .carrier-order-card-avatar svg{width:21px!important;height:21px!important;stroke-width:2!important}
+.carrier-orders-screen .carrier-order-card-info{gap:5px!important;padding-top:0!important}
+.carrier-orders-screen .carrier-order-card-title strong{font-size:14px!important;line-height:1.25!important;padding-right:94px!important}
+.carrier-orders-screen .carrier-order-card-route,.carrier-orders-screen .carrier-order-card-city{font-size:11px!important;line-height:1.35!important}
+.carrier-orders-screen .carrier-order-card-route{padding-top:2px!important}
+.carrier-orders-screen .carrier-order-card-tags{gap:4px!important;margin-top:2px!important}
+.carrier-orders-screen .carrier-order-pill{font-size:9px!important;padding:3px 6px!important;border-radius:7px!important;gap:3px!important}
+.carrier-orders-screen .carrier-order-pill svg{width:12px!important;height:12px!important}
+.carrier-orders-screen .carrier-order-card-meta{top:8px!important;right:9px!important;gap:5px!important}
+.carrier-orders-screen .carrier-order-card-price{font-size:11px!important;padding:4px 7px!important;border-radius:8px!important}
+.carrier-orders-screen .carrier-order-card-meta small{font-size:9px!important;gap:3px!important}
+.carrier-orders-screen .carrier-orders-header svg,.carrier-orders-screen .carrier-orders-summary svg,.carrier-orders-screen .carrier-orders-content svg{stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;fill:none}
+@media(max-width:360px){.carrier-orders-screen .carrier-orders-summary{gap:2px!important;padding:5px 4px 7px!important}.carrier-orders-screen .carrier-orders-stat{gap:3px!important;padding:4px 2px!important}.carrier-orders-screen .carrier-orders-stat-icon{width:22px!important;flex-basis:22px!important;height:26px!important}.carrier-orders-screen .carrier-orders-stat-icon svg{width:14px!important;height:14px!important}.carrier-orders-screen .carrier-orders-stat-info>strong{font-size:10px!important}.carrier-orders-screen .carrier-order-card-main{padding:9px 7px!important}}
 </style></head>
 <body><div id="root"></div>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
