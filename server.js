@@ -46,6 +46,8 @@ const migrations = [
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
+function safeErrorCode(err) { return String(err?.code || 'ERRO_DESCONHECIDO').replace(/[^A-Z0-9_]/g,'').slice(0,60); }
+function dbErrorHint(code) { const hints={ER_NO_SUCH_TABLE:'Tabela de autenticação não existe. Verifique as migrações e permissões CREATE TABLE.',ER_BAD_FIELD_ERROR:'A tabela existente tem colunas incompatíveis com o cadastro.',ER_ACCESS_DENIED_ERROR:'Credenciais ou permissões MySQL incorretas.',ER_DBACCESS_DENIED_ERROR:'Usuário sem acesso ao banco configurado.',ER_TABLEACCESS_DENIED_ERROR:'Usuário sem permissão nas tabelas.',ER_BAD_DB_ERROR:'Banco DB_NAME não existe.',ECONNREFUSED:'MySQL recusou a conexão: confira DB_HOST e DB_PORT.',ENOTFOUND:'Endereço DB_HOST não encontrado.',ETIMEDOUT:'Conexão MySQL expirou.',ER_DUP_ENTRY:'Já existe cadastro com esses dados.'};return hints[code]||'Consulte o código do erro nos logs da hospedagem.'; }
 async function connectAndMigrate() {
   lastAttemptAt = Date.now();
   if (!configured()) {
@@ -72,7 +74,7 @@ async function connectAndMigrate() {
   } catch (err) {
     databaseStatus = {ok:false, message:'Falha na conexão ou migração do MySQL', checkedAt:new Date().toISOString()};
     migrationStatus = 'erro';
-    lastDatabaseError = String(err.code || 'ERRO_DESCONHECIDO').slice(0,60);
+    lastDatabaseError = safeErrorCode(err);
     console.error('[MYSQL]', err.code || 'ERROR', err.message);
   }
 }
@@ -178,7 +180,8 @@ async function authRoutes(req,res,path) {
   if(!pool || !databaseStatus.ok || migrationStatus!=='atualizado') await ensureDatabase();
   if(!pool || !databaseStatus.ok || migrationStatus!=='atualizado') {sendJson(res,503,{error:'Banco de dados indisponível',diagnostic:databaseDiagnostics()});return true;}
   if(rateLimit(req,path)) {sendJson(res,429,{error:'Muitas tentativas. Aguarde 15 minutos.'});return true;}
-  const body=await readBody(req);
+  let body;
+  try {body=await readBody(req)} catch(err) {sendJson(res,400,{error:'Corpo da requisição inválido.'});return true;}
   if(path==='/api/auth/logout') {
     const match=String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
     if(match) await pool.execute('DELETE FROM auth_sessions WHERE token_hash=?',[crypto.createHash('sha256').update(match[1]).digest('hex')]);
@@ -251,7 +254,16 @@ const server = http.createServer(async (req,res) => {
     return;
   }
   sendJson(res,404,{error:'Rota não encontrada'});
-  } catch(err) {console.error('[HTTP]',err.message);if(!res.headersSent) sendJson(res,500,{error:'Erro interno do servidor'});}
+  } catch(err) {
+    const code=safeErrorCode(err);
+    console.error('[HTTP]',code,err.message);
+    if(err.code && (/^(ER_|ECONN|ENOTFOUND|ETIMEDOUT)/).test(err.code)) {
+      databaseStatus={ok:false,message:'Falha ao executar operação MySQL',checkedAt:new Date().toISOString()};
+      lastDatabaseError=code;
+      migrationStatus=code==='ER_NO_SUCH_TABLE'?'erro':'atualizado';
+    }
+    if(!res.headersSent) sendJson(res,500,{error:'Falha ao processar cadastro ou login.',code,hint:dbErrorHint(code)});
+  }
 });
 server.listen(PORT, HOST, () => {
   console.log('[ZAP] Servidor online na porta '+PORT);
