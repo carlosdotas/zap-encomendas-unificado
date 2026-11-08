@@ -633,7 +633,7 @@ callWss.on('connection',(ws,req,user)=>{
  const sessionHash=sessionToken?crypto.createHash('sha256').update(sessionToken).digest('hex'):'';let sockets=callSockets.get(ws.userId);if(!sockets){sockets=new Set();callSockets.set(ws.userId,sockets)}sockets.add(ws);
  ws.on('message',async raw=>{
   let msg;try{msg=JSON.parse(String(raw))}catch{return}
-  if(msg.type==='online'&&callVehicleLevel[msg.vehicle]&&(user.vehicles||'').split(',').includes(msg.vehicle)){ws.vehicle=msg.vehicle;callSend(ws,{type:'call_ready'});for(const q of callQueues.values())if(!q.driverId){clearTimeout(q.timer);nextOffer(q)}recoverPendingCalls().catch(err=>console.error('[CALL RECOVER]',err.message));return}
+  if(msg.type==='online'&&callVehicleLevel[msg.vehicle]&&(user.role==='transportadora'?((user.vehicles||'').split(',').filter(Boolean).length?(user.vehicles||'').split(','):['moto']):(user.vehicles||'').split(',')).includes(msg.vehicle)){ws.vehicle=msg.vehicle;callSend(ws,{type:'call_ready'});for(const q of callQueues.values())if(!q.driverId){clearTimeout(q.timer);nextOffer(q)}recoverPendingCalls().catch(err=>console.error('[CALL RECOVER]',err.message));return}
   if(msg.type==='push_register'){nativePush.register(user,msg,sessionHash);return;}
   if(msg.type==='location'){
    const p=msg.position||{},lat=p.latitude,lng=p.longitude,accuracy=p.accuracy,time=p.timestamp;
@@ -712,7 +712,7 @@ const server = http.createServer(async (req,res) => {
     if(!res.headersSent) sendJson(res,500,{error:'Falha ao processar cadastro ou login.',code,hint:dbErrorHint(code)});
   }
 });
-server.on('upgrade',async(req,socket,head)=>{try{if(new URL(req.url,'http://localhost').pathname!=='/ws/calls'){socket.destroy();return}const origin=req.headers.origin;const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin){let originHost='';try{originHost=new URL(origin).host}catch{}if(!originHost||originHost!==host){socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');socket.destroy();return}}await ensureDatabase();const user=await getSession(req);if(!user||user.role!=='motorista'){socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');socket.destroy();return}callWss.handleUpgrade(req,socket,head,ws=>callWss.emit('connection',ws,req,user))}catch{socket.destroy()}});
+server.on('upgrade',async(req,socket,head)=>{try{if(new URL(req.url,'http://localhost').pathname!=='/ws/calls'){socket.destroy();return}const origin=req.headers.origin;const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin){let originHost='';try{originHost=new URL(origin).host}catch{}if(!originHost||originHost!==host){socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');socket.destroy();return}}await ensureDatabase();const user=await getSession(req);if(!user||!['motorista','transportadora'].includes(user.role)){socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');socket.destroy();return}callWss.handleUpgrade(req,socket,head,ws=>callWss.emit('connection',ws,req,user))}catch{socket.destroy()}});
 server.listen(PORT, HOST, () => {
   console.log('[ZAP] Servidor online na porta '+PORT);
   ensureDatabase(true).then(recoverPendingCalls).catch(err => console.error('[BOOT]',err.message));
