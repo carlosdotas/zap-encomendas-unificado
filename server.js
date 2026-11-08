@@ -307,21 +307,47 @@ async function authRoutes(req,res,path) {
 
 
 async function adminRoutes(req,res,path){
- if(path!=='/api/admin/overview'||req.method!=='GET')return false;
+ if(!path.startsWith('/api/admin/'))return false;
+ if(req.method!=='GET'){sendJson(res,405,{error:'Método não permitido.'});return true;}
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para acessar a administração.'});return true;}
  if(user.role!=='administrador'){sendJson(res,403,{error:'Acesso restrito à administração.'});return true;}
- const [[users],[orders],[recent]] = await Promise.all([
-  pool.query("SELECT role,COUNT(*) AS total FROM app_users GROUP BY role"),
-  pool.query("SELECT status,COUNT(*) AS total FROM zap_order_entries GROUP BY status"),
-  pool.query("SELECT o.id,o.place,o.service_type,o.vehicle_type,o.status,o.created_at,u.full_name AS carrier_name FROM zap_order_entries o LEFT JOIN app_users u ON u.id=o.owner_user_id ORDER BY o.created_at DESC LIMIT 100")
- ]);
- const counts={motorista:0,transportadora:0,administrador:0};
- for(const item of users)counts[item.role]=Number(item.total);
- const statuses={};let totalOrders=0;
- for(const item of orders){statuses[item.status]=Number(item.total);totalOrders+=Number(item.total);}
- sendJson(res,200,{users:counts,orders:{total:totalOrders,byStatus:statuses},recentOrders:recent.map(o=>({...o,id:String(o.id)}))});
- return true;
+ const url=new URL(req.url,'http://localhost');
+ const page=Math.max(1,Math.min(100000,Number.parseInt(url.searchParams.get('page'),10)||1));
+ const limit=25,offset=(page-1)*limit;
+ const search=String(url.searchParams.get('search')||'').trim().slice(0,100);
+ if(path==='/api/admin/overview'){
+  const [[users],[orders],[recent]]=await Promise.all([
+   pool.query("SELECT role,COUNT(*) AS total FROM app_users GROUP BY role"),
+   pool.query("SELECT status,COUNT(*) AS total FROM zap_order_entries GROUP BY status"),
+   pool.query("SELECT o.id,o.place,o.service_type,o.vehicle_type,o.status,o.created_at,u.full_name AS carrier_name FROM zap_order_entries o LEFT JOIN app_users u ON u.id=o.owner_user_id ORDER BY o.created_at DESC LIMIT 100")
+  ]);
+  const counts={motorista:0,transportadora:0,administrador:0};
+  for(const item of users)counts[item.role]=Number(item.total);
+  const statuses={};let totalOrders=0;
+  for(const item of orders){statuses[item.status]=Number(item.total);totalOrders+=Number(item.total);}
+  sendJson(res,200,{users:counts,orders:{total:totalOrders,byStatus:statuses},recentOrders:recent.map(o=>({...o,id:String(o.id)}))});return true;
+ }
+ const roleByPath={'/api/admin/drivers':'motorista','/api/admin/carriers':'transportadora','/api/admin/administrators':'administrador'};
+ if(Object.prototype.hasOwnProperty.call(roleByPath,path)){
+  const role=roleByPath[path],where="WHERE role=?"+(search?" AND (full_name LIKE ? OR phone LIKE ?)":"");
+  const params=search?[role,'%'+search+'%','%'+search+'%']:[role];
+  const [[{total}],[rows]]=await Promise.all([
+   pool.query("SELECT COUNT(*) AS total FROM app_users "+where,params),
+   pool.query("SELECT id,full_name,phone,role,vehicles,created_at FROM app_users "+where+" ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?",[...params,limit,offset])
+  ]);
+  sendJson(res,200,{items:rows.map(u=>({...u,id:String(u.id)})),total:Number(total),page,limit});return true;
+ }
+ if(path==='/api/admin/orders'){
+  const where=search?"WHERE o.place LIKE ? OR o.status LIKE ? OR u.full_name LIKE ? OR o.client_name LIKE ?":"";
+  const params=search?Array(4).fill('%'+search+'%'):[];
+  const [[{total}],[rows]]=await Promise.all([
+   pool.query("SELECT COUNT(*) AS total FROM zap_order_entries o LEFT JOIN app_users u ON u.id=o.owner_user_id "+where,params),
+   pool.query("SELECT o.id,o.place,o.address,o.client_name,o.service_type,o.vehicle_type,o.status,o.created_at,u.full_name AS carrier_name FROM zap_order_entries o LEFT JOIN app_users u ON u.id=o.owner_user_id "+where+" ORDER BY o.created_at DESC,o.id DESC LIMIT ? OFFSET ?",[...params,limit,offset])
+  ]);
+  sendJson(res,200,{items:rows.map(o=>({...o,id:String(o.id)})),total:Number(total),page,limit});return true;
+ }
+ sendJson(res,404,{error:'Página administrativa não encontrada.'});return true;
 }
 
 function mapOrder(row) {
