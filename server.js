@@ -137,15 +137,28 @@ async function provisionInitialAdmin(){
   console.error('[ADMIN] Credenciais iniciais inválidas: informe ADMIN_PHONE com DDD, ADMIN_PASSWORD com pelo menos 12 caracteres e ADMIN_NAME válido.');
   return;
  }
+ const [existing]=await pool.execute('SELECT id,role FROM app_users WHERE phone=? LIMIT 1',[phone]);
+ const reset=process.env.ADMIN_RESET_PASSWORD==='true';
+ if(reset){
+  if(!existing.length||existing[0].role!=='administrador'){
+   console.error('[ADMIN] Redefinição recusada: ADMIN_PHONE deve corresponder a um administrador existente.');
+   return;
+  }
+  const salt=crypto.randomBytes(16).toString('hex');
+  const encoded='scrypt:'+salt+':'+hashPassword(password,salt);
+  await pool.execute("UPDATE app_users SET password_hash=? WHERE id=? AND role='administrador'",[encoded,existing[0].id]);
+  await pool.execute('DELETE FROM zap_login_sessions WHERE user_id=?',[existing[0].id]);
+  console.log('[ADMIN] Senha do administrador redefinida. Remova ADMIN_RESET_PASSWORD e ADMIN_PASSWORD do ambiente e reinicie o servidor.');
+  return;
+ }
  const [[{total}]]=await pool.query("SELECT COUNT(*) AS total FROM app_users WHERE role='administrador'");
  if(Number(total)>0)return;
- const salt=crypto.randomBytes(16).toString('hex');
- const encoded='scrypt:'+salt+':'+hashPassword(password,salt);
- const [existing]=await pool.execute('SELECT id,role FROM app_users WHERE phone=? LIMIT 1',[phone]);
  if(existing.length){
   console.error('[ADMIN] O telefone informado já pertence a uma conta existente. Não alteramos seu perfil automaticamente.');
   return;
  }
+ const salt=crypto.randomBytes(16).toString('hex');
+ const encoded='scrypt:'+salt+':'+hashPassword(password,salt);
  await pool.execute("INSERT INTO app_users (full_name,phone,password_hash,role,vehicles) VALUES (?,?,?,'administrador','')",[name,phone,encoded]);
  console.log('[ADMIN] Conta administrativa inicial criada no MySQL.');
 }
