@@ -463,7 +463,7 @@ async function orderProofRoutes(req,res,path){
   for(const photo of parsed)await connection.execute('INSERT INTO zap_order_proof_photos (proof_id,mime_type,image_data) VALUES (?,?,?)',[saved.insertId,photo.mime,photo.bytes]);
   await connection.execute("UPDATE zap_order_entries SET status='concluido' WHERE id=? AND driver_id=? AND status='aceito'",[orderId,user.id]);
   await connection.commit();
-  sendJson(res,201,{ok:true,proofId:String(saved.insertId),photoCount:parsed.length});
+  sendJson(res,201,{ok:true,proofId:String(saved.insertId),photoCount:parsed.length,photoIds:[]});
  }catch(e){await connection.rollback();sendJson(res,500,{error:'Não foi possível salvar a confirmação e as fotos'});}finally{connection.release();}
  return true;
 }
@@ -492,8 +492,10 @@ async function orderRoutes(req,res,path) {
    const completedIds=rows.filter(row=>row.status==='concluido').map(row=>row.id);
    let proofs=[];
    if(completedIds.length){const placeholders=completedIds.map(()=>'?').join(',');const [proofRows]=await pool.execute('SELECT f.id,f.order_id,f.action,f.created_at,COUNT(p.id) AS photo_count FROM zap_order_proofs f LEFT JOIN zap_order_proof_photos p ON p.proof_id=f.id WHERE f.order_id IN ('+placeholders+') AND f.driver_id=? GROUP BY f.id,f.order_id,f.action,f.created_at',[...completedIds,user.id]);proofs=proofRows;}
+   let proofPhotos=[];if(proofs.length){const ids=proofs.map(p=>p.id);const [photoRows]=await pool.execute('SELECT id,proof_id FROM zap_order_proof_photos WHERE proof_id IN ('+ids.map(()=>'?').join(',')+') ORDER BY id',ids);proofPhotos=photoRows;}
+   const photoIdsByProof=new Map();for(const p of proofPhotos){const key=String(p.proof_id);if(!photoIdsByProof.has(key))photoIdsByProof.set(key,[]);photoIdsByProof.get(key).push(String(p.id));}
    const proofByOrder=new Map(proofs.map(p=>[String(p.order_id),p]));
-   sendJson(res,200,{orders:rows.map(row=>{const proof=proofByOrder.get(String(row.id));return {...mapOrder(row),carrier:row.carrier_name||'Transportadora',proof:proof?{id:String(proof.id),action:proof.action,createdAt:proof.created_at,photoCount:Number(proof.photo_count)}:null}})});return true;
+   sendJson(res,200,{orders:rows.map(row=>{const proof=proofByOrder.get(String(row.id));return {...mapOrder(row),carrier:row.carrier_name||'Transportadora',proof:proof?{id:String(proof.id),action:proof.action,createdAt:proof.created_at,photoCount:Number(proof.photo_count),photoIds:photoIdsByProof.get(String(proof.id))||[]}:null}})});return true;
  }
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras podem cadastrar pedidos'});return true;}
  if(req.method==='GET' && path==='/api/orders') {
