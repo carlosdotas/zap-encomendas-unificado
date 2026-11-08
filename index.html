@@ -1182,7 +1182,8 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   update();
   return()=>{cancelAnimationFrame(raf);root.removeEventListener('focusin',onFocus);root.removeEventListener('focusout',onFocus);vv?.removeEventListener('resize',update);vv?.removeEventListener('scroll',update);window.removeEventListener('resize',update);root.classList.remove('carrier-search-keyboard-open');root.style.removeProperty('--carrier-search-keyboard-offset');root.style.removeProperty('--carrier-search-viewport-height')};
  },[]);
- const [orderValues,setOrderValues]=useState([]);
+ const defaultOrderValues=()=>['Valor coleta','Valor transporte entre cidades','Valor entrega'].map((description,i)=>({id:'padrao-'+i,type:'custo',description,amount:0}));
+ const [orderValues,setOrderValues]=useState(defaultOrderValues);
  const moneyBRL=cents=>(Number(cents||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
  const orderTotalCents=orderValues.reduce((sum,item)=>sum+(item.type==='desconto'?-1:1)*(Math.round(Number(item.amount)*100)||0),0);
  const addOrderValue=type=>setOrderValues(items=>[...items,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),type,description:'',amount:''}]);
@@ -1437,7 +1438,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   adjust();
   return()=>{cancelAnimationFrame(raf);vv?.removeEventListener('resize',adjust);vv?.removeEventListener('scroll',adjust);window.removeEventListener('resize',adjust);input.removeEventListener('focus',onFocus);input.removeEventListener('blur',onBlur);root.classList.remove('zap-search-keyboard-open');root.style.removeProperty('--zap-search-keyboard-bottom');root.style.removeProperty('--zap-search-visible-height')};
  },[selected,viewOrder]);
- function choose(place){const suggested=String(place.name||place.place||String(place.display_name||'').split(',')[0]||'').trim();const isPublic=/^(rua|avenida|av\.?|travessa|alameda|rodovia|estrada|praça|praca|parque|largo|via|beco|quadra|setor|bairro|logradouro|ponte|rotatória|rotatoria|calçada|calcada|terminal|ponto de ônibus|ponto de onibus)\b/i.test(suggested)||(!place.name&&/^(rua|avenida|travessa|rodovia|estrada|praça|praca|parque|bairro)\b/i.test(String(place.display_name||'')));setPublicPlaceNeedsName(isPublic);setPlaceName(isPublic?'':suggested);setConfigCollapsed(false);setClientQuery('');setClientSuggestions(false);setForm({type:'coleta',vehicle:'moto',carrier:'Zap Encomendas',client:'',clientPhone:'',closesAt:'',instructions:''});setViewOrder(null);setEditingOrderId(null);setPlacesDialog(false);setSelected(place);setResults([]);setQuery(place.display_name||place.place);setMessage('');if(mapRef.current){const ll=[Number(place.lat),Number(place.lon??place.lng)];if(pinRef.current)pinRef.current.remove();pinRef.current=L.marker(ll).addTo(mapRef.current);mapRef.current.setView(ll,16);
+ function choose(place){setOrderValues(defaultOrderValues());const suggested=String(place.name||place.place||String(place.display_name||'').split(',')[0]||'').trim();const isPublic=/^(rua|avenida|av\.?|travessa|alameda|rodovia|estrada|praça|praca|parque|largo|via|beco|quadra|setor|bairro|logradouro|ponte|rotatória|rotatoria|calçada|calcada|terminal|ponto de ônibus|ponto de onibus)\b/i.test(suggested)||(!place.name&&/^(rua|avenida|travessa|rodovia|estrada|praça|praca|parque|bairro)\b/i.test(String(place.display_name||'')));setPublicPlaceNeedsName(isPublic);setPlaceName(isPublic?'':suggested);setConfigCollapsed(false);setClientQuery('');setClientSuggestions(false);setForm({type:'coleta',vehicle:'moto',carrier:'Zap Encomendas',client:'',clientPhone:'',closesAt:'',instructions:''});setViewOrder(null);setEditingOrderId(null);setPlacesDialog(false);setSelected(place);setResults([]);setQuery(place.display_name||place.place);setMessage('');if(mapRef.current){const ll=[Number(place.lat),Number(place.lon??place.lng)];if(pinRef.current)pinRef.current.remove();pinRef.current=L.marker(ll).addTo(mapRef.current);mapRef.current.setView(ll,16);
     // Reposiciona o ponto acima do painel inferior, depois que o formulário abrir.
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       const map=mapRef.current;if(!map)return;
@@ -1490,7 +1491,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
    setOrders(previous=>editingOrderId?previous.map(item=>String(item.id)===String(editingOrderId)?data.order:item):[data.order,...previous]);
   } catch(err) {setMessage(err.message||'Não foi possível salvar o pedido.');return}
   finally {setSavingOrder(false)}
-  setSelected(null);setEditingOrderId(null);setOrderValues([]);setViewOrder(null);setResults([]);setQuery('');
+  setSelected(null);setEditingOrderId(null);setOrderValues(defaultOrderValues());setViewOrder(null);setResults([]);setQuery('');
   setMessage('');
   if(pinRef.current){pinRef.current.remove();pinRef.current=null}
   const map=mapRef.current;
