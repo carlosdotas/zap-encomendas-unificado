@@ -783,11 +783,13 @@ entrega:'<path d="M12 5v14m-6-6 6 6 6-6"/>',
 troca:'<path d="M4 8h16m-4-4 4 4-4 4M20 16H4m4-4-4 4 4 4"/>'
 };
 function distanceText(origin,item){
-if(!origin)return 'Ative o GPS';
-const rad=Math.PI/180, dLat=(item.lat-origin[0])*rad,dLng=(item.lng-origin[1])*rad;
-const h=Math.sin(dLat/2)**2+Math.cos(origin[0]*rad)*Math.cos(item.lat*rad)*Math.sin(dLng/2)**2;
-const km=6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
-return km<1?Math.round(km*1000)+' m':km.toFixed(1).replace('.',',')+' km';
+ if(!Array.isArray(origin)||origin.length<2)return 'Ative o GPS';
+ const lat=Number(item?.lat),lng=Number(item?.lng??item?.lon),originLat=Number(origin[0]),originLng=Number(origin[1]);
+ if(![lat,lng,originLat,originLng].every(Number.isFinite)||Math.abs(lat)>90||Math.abs(originLat)>90||Math.abs(lng)>180||Math.abs(originLng)>180)return 'Distância indisponível';
+ const rad=Math.PI/180,dLat=(lat-originLat)*rad,dLng=(lng-originLng)*rad;
+ const h=Math.sin(dLat/2)**2+Math.cos(originLat*rad)*Math.cos(lat*rad)*Math.sin(dLng/2)**2;
+ const km=6371*2*Math.atan2(Math.sqrt(Math.max(0,Math.min(1,h))),Math.sqrt(Math.max(0,1-h)));
+ return km<1?Math.round(km*1000)+' m':km.toFixed(1).replace('.',',')+' km';
 }
 function markerHtml(item,origin){
 const label={coleta:'Coleta',entrega:'Entrega',troca:'Troca'}[item.type];
@@ -867,7 +869,7 @@ baseTiles.addTo(map);
 let tileFailures=0;
 baseTiles.on('tileerror',()=>{tileFailures++;if(tileFailures===4){const warning=document.createElement('div');warning.className='zap-map-warning';warning.textContent='O serviço de mapas não está disponível nesta conexão. Configure um provedor de mapas autorizado para uso em produção.';map.getContainer().appendChild(warning)}});
 const jobsLayer=L.layerGroup().addTo(map);
-const jobs=registeredRequests.map(item=>{const icon=L.divIcon({className:'job-div-icon',html:markerHtml(item,null),iconSize:[399,154],iconAnchor:[29,154]});return {...item,marker:L.marker([item.lat,item.lng],{icon,title:item.place+' - '+item.type})}});
+const jobs=registeredRequests.map(item=>{const icon=L.divIcon({className:'job-div-icon',html:markerHtml(item,gpsPointRef.current),iconSize:[399,154],iconAnchor:[29,154]});return {...item,marker:L.marker([item.lat,item.lng],{icon,title:item.place+' - '+item.type})}});
 jobs.forEach(job=>{job.marker.off('click');job.marker.on('click',()=>{setSelectedJob(job);showRouteToJob(job)});job.marker.unbindPopup()});jobsRef.current=jobs;
 function renderJobClusters(){
 jobsLayer.clearLayers();
