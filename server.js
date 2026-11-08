@@ -608,7 +608,7 @@ function nextOffer(queue){
  for(const ws of callSockets.get(next)||[])if(ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[queue.order.vehicle])callSend(ws,{type:'call_offer',order:queue.order,expiresAt:Date.now()+30000});
  queue.timer=setTimeout(()=>nextOffer(queue),30000);
 }
-function queueOrder(order){if(callQueues.has(order.id))return;const q={order,driverId:null,tried:new Set(),timer:null};callQueues.set(order.id,q);nextOffer(q)}
+function queueOrder(order){const id=String(order.id);if(callQueues.has(id))return;const q={order:{...order,id},driverId:null,tried:new Set(),timer:null};callQueues.set(id,q);nextOffer(q)}
 async function recoverPendingCalls(){
  if(!pool||!databaseStatus.ok)return;
  const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE o.status='aguardando_motorista' ORDER BY o.id ASC LIMIT 500");
@@ -620,7 +620,7 @@ callWss.on('connection',(ws,req,user)=>{
  ws.userId=String(user.id);ws.vehicle=null;let sockets=callSockets.get(ws.userId);if(!sockets){sockets=new Set();callSockets.set(ws.userId,sockets)}sockets.add(ws);
  ws.on('message',async raw=>{
   let msg;try{msg=JSON.parse(String(raw))}catch{return}
-  if(msg.type==='online'&&callVehicleLevel[msg.vehicle]&&(user.vehicles||'').split(',').includes(msg.vehicle)){ws.vehicle=msg.vehicle;recoverPendingCalls().catch(err=>console.error('[CALL RECOVER]',err.message));return}
+  if(msg.type==='online'&&callVehicleLevel[msg.vehicle]&&(user.vehicles||'').split(',').includes(msg.vehicle)){ws.vehicle=msg.vehicle;for(const q of callQueues.values())if(!q.driverId){clearTimeout(q.timer);nextOffer(q)}recoverPendingCalls().catch(err=>console.error('[CALL RECOVER]',err.message));return}
   if(msg.type==='offline'){ws.vehicle=null;for(const q of callQueues.values())if(q.driverId===ws.userId)nextOffer(q);return}
   if(!['accept','reject'].includes(msg.type))return;
   const id=String(msg.orderId||''),q=callQueues.get(id);
