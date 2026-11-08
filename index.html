@@ -1020,8 +1020,9 @@ function CarrierDashboard({onBack}){
  const phoneDigits=value=>String(value||'').replace(/\D/g,'').slice(0,11);
  const formatClientPhone=value=>{const d=phoneDigits(value);if(!d)return '';if(d.length<=2)return '('+d;if(d.length<=6)return '('+d.slice(0,2)+') '+d.slice(2);if(d.length<=10)return '('+d.slice(0,2)+') '+d.slice(2,6)+(d.length>6?'-'+d.slice(6):'');return '('+d.slice(0,2)+') '+d.slice(2,7)+(d.length>7?'-'+d.slice(7):'')};
  const clientMatches=(c,q)=>normalizeClient(c.name).includes(normalizeClient(q))||phoneDigits(c.phone).includes(phoneDigits(q))&&phoneDigits(q).length>0;
- const matchingClients=clients.filter(c=>clientMatches(c,clientQuery)).slice(0,7);
- const listedClients=clients.filter(c=>clientMatches(c,clientListQuery)).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+ const byClientUsage=(a,b)=>(Number(b.usageCount)||0)-(Number(a.usageCount)||0)||a.name.localeCompare(b.name,'pt-BR');
+ const matchingClients=clients.filter(c=>clientMatches(c,clientQuery)).sort(byClientUsage).slice(0,7);
+ const listedClients=clients.filter(c=>clientMatches(c,clientListQuery)).sort(byClientUsage);
  function chooseListedClient(c){selectClient(c);setClientListOpen(false)}
  function selectClient(client){setClientQuery(client.name);setForm(v=>({...v,client:client.name,clientPhone:client.phone||''}));setClientSuggestions(false)}
  function openClientRegistration(){setNewClient({name:clientQuery.trim(),contactName:'',document:'',phone:'',address:'',lat:null,lng:null});setClientError('');setClientSuggestions(false);setClientDialog(true)}
@@ -1057,7 +1058,7 @@ function CarrierDashboard({onBack}){
    const response=await fetch('/api/maps/saved',{credentials:'same-origin',cache:'no-store'});
    const data=await response.json();
    if(!response.ok)throw Error(data.error||'Não foi possível carregar locais salvos');
-   setSavedPlaces(Array.isArray(data.results)?data.results:[]);
+   setSavedPlaces(Array.isArray(data.results)?[...data.results].sort((a,b)=>(Number(b.usageCount)||0)-(Number(a.usageCount)||0)||String(a.name||'').localeCompare(String(b.name||''),'pt-BR')):[]);
   }catch(err){setSavedPlaces([]);setSavedPlacesError(err.message||'Falha ao carregar locais salvos')}
   finally{setSavedPlacesLoading(false)}
  }
