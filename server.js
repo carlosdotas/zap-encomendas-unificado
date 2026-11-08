@@ -359,7 +359,7 @@ async function adminRoutes(req,res,path){
 }
 
 function mapOrder(row) {
- return {id:String(row.id),ownerId:row.owner_user_id==null?null:String(row.owner_user_id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',closesAt:row.closes_at?String(row.closes_at).slice(0,5):'',instructions:row.instructions||'',driverId:row.driver_id==null?null:String(row.driver_id),status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
+ return {id:String(row.id),ownerId:row.owner_user_id==null?null:String(row.owner_user_id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',closesAt:row.closes_at?String(row.closes_at).slice(0,5):'',instructions:row.instructions||'',driverId:row.driver_id==null?null:String(row.driver_id),driverName:row.driver_name||null,status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
 }
 
 async function quickClientRoutes(req,res,path){
@@ -433,7 +433,7 @@ async function orderRoutes(req,res,path) {
  }
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras podem cadastrar pedidos'});return true;}
  if(req.method==='GET' && path==='/api/orders') {
-   const [rows]=await pool.execute('SELECT * FROM zap_order_entries WHERE owner_user_id=? ORDER BY id DESC LIMIT 500',[user.id]);
+   const [rows]=await pool.execute('SELECT o.*,d.full_name AS driver_name FROM zap_order_entries o LEFT JOIN app_users d ON d.id=o.driver_id WHERE o.owner_user_id=? ORDER BY o.id DESC LIMIT 500',[user.id]);
    sendJson(res,200,{orders:rows.map(mapOrder)});return true;
  }
  const match=path.match(/^\/api\/orders\/(\d+)$/);
