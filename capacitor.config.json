@@ -1,0 +1,7 @@
+{
+  "appId": "site.dotas.zapencomendas",
+  "appName": "Zap Encomendas",
+  "webDir": "mobile/www",
+  "server": { "url": "https://dotas.site", "cleartext": false },
+  "android": { "allowMixedContent": false, "captureInput": true }
+}

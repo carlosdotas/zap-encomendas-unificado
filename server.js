@@ -9,6 +9,8 @@ const pathModule = require('node:path');
 const mysql = require('mysql2/promise');
 const crypto = require('node:crypto');
 const {WebSocketServer,WebSocket}=require('ws');
+const nativePush=require('./native-push');
+const {apkDownload}=require('./apk-download');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -61,7 +63,8 @@ const migrations = [
    ]] ,
   [8, ["ALTER TABLE app_users MODIFY COLUMN role ENUM('motorista','transportadora','administrador') NOT NULL DEFAULT 'motorista'"]],
   [9, ["ALTER TABLE zap_order_entries ADD COLUMN closes_at TIME NULL"]],
-  [10, ["ALTER TABLE zap_order_entries ADD COLUMN driver_id BIGINT UNSIGNED NULL", "ALTER TABLE zap_order_entries ADD INDEX idx_zap_order_driver (driver_id)"]] 
+  [10, ["ALTER TABLE zap_order_entries ADD COLUMN driver_id BIGINT UNSIGNED NULL", "ALTER TABLE zap_order_entries ADD INDEX idx_zap_order_driver (driver_id)"]],
+  [11, ["CREATE TABLE IF NOT EXISTS zap_driver_positions (user_id BIGINT UNSIGNED PRIMARY KEY, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, accuracy FLOAT NOT NULL, captured_at DATETIME NOT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB"]]
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
@@ -269,6 +272,7 @@ async function authRoutes(req,res,path) {
   let body;
   try {body=await readBody(req)} catch(err) {sendJson(res,400,{error:'Corpo da requisição inválido.'});return true;}
   if(path==='/api/auth/logout') {
+    nativePush.removeSession(req.headers.cookie);
     if(!pool||!databaseStatus.ok)await ensureDatabase();
     if(!pool||!databaseStatus.ok){setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;}
     const match=String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
@@ -595,8 +599,11 @@ const callSockets=new Map(),callQueues=new Map();
 const callWss=new WebSocketServer({noServer:true});
 const callVehicleLevel={moto:1,carro:2,utilitario:3};
 function callSend(ws,data){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(data))}
-function eligibleCallDrivers(vehicle,orderId){return [...callSockets.entries()].filter(([id,sockets])=>![...callQueues.values()].some(q=>q.order.id!==orderId&&q.driverId===id)&&[...sockets].some(ws=>ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[vehicle])).map(([id])=>id)}
-function stopOffer(queue){if(queue.timer)clearTimeout(queue.timer);queue.timer=null;if(queue.driverId){for(const ws of callSockets.get(queue.driverId)||[])callSend(ws,{type:'call_end',orderId:queue.order.id});}queue.driverId=null}
+function eligibleCallDrivers(vehicle,orderId){
+ const sockets=[...callSockets.entries()].filter(([,s])=>[...s].some(ws=>ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[vehicle])).map(([id])=>id);
+ return [...new Set([...sockets,...nativePush.candidates(vehicle)])].filter(id=>![...callQueues.values()].some(q=>q.order.id!==orderId&&q.driverId===id));
+}
+function stopOffer(queue){if(queue.timer)clearTimeout(queue.timer);queue.timer=null;if(queue.driverId){for(const ws of callSockets.get(queue.driverId)||[])callSend(ws,{type:'call_end',orderId:queue.order.id});nativePush.send(queue.driverId,{type:'call_end',orderId:queue.order.id,offerExpiresAt:queue.offerExpiresAt},pool);}queue.driverId=null}
 function dispatchWaitingOrders(){for(const queue of callQueues.values())if(!queue.driverId&&eligibleCallDrivers(queue.order.vehicle,queue.order.id).length){if(queue.timer)clearTimeout(queue.timer);queue.timer=null;nextOffer(queue)}}
 function nextOffer(queue){
  if(!callQueues.has(queue.order.id))return;
@@ -606,7 +613,9 @@ function nextOffer(queue){
  const next=drivers.find(id=>!queue.tried.has(id));
  if(!next){queue.tried.clear();queue.timer=setTimeout(()=>nextOffer(queue),1000);return}
  queue.tried.add(next);queue.driverId=next;
- for(const ws of callSockets.get(next)||[])if(ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[queue.order.vehicle])callSend(ws,{type:'call_offer',order:queue.order,expiresAt:Date.now()+30000});
+ const expiresAt=Date.now()+30000;queue.offerExpiresAt=expiresAt;
+ nativePush.send(next,{type:'call_offer',order:queue.order,expiresAt},pool);
+ for(const ws of callSockets.get(next)||[])if(ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[queue.order.vehicle])callSend(ws,{type:'call_offer',order:queue.order,expiresAt});
  queue.timer=setTimeout(()=>{nextOffer(queue);dispatchWaitingOrders()},30000);
  dispatchWaitingOrders();
 }
@@ -619,11 +628,21 @@ async function recoverPendingCalls(){
  for(const row of rows)queueOrder({...mapOrder(row),carrier:row.carrier_name||'Transportadora'});
 }
 callWss.on('connection',(ws,req,user)=>{
- ws.userId=String(user.id);ws.vehicle=null;let sockets=callSockets.get(ws.userId);if(!sockets){sockets=new Set();callSockets.set(ws.userId,sockets)}sockets.add(ws);
+ ws.userId=String(user.id);ws.vehicle=null;
+ const sessionToken=String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/)?.[1];
+ const sessionHash=sessionToken?crypto.createHash('sha256').update(sessionToken).digest('hex'):'';let sockets=callSockets.get(ws.userId);if(!sockets){sockets=new Set();callSockets.set(ws.userId,sockets)}sockets.add(ws);
  ws.on('message',async raw=>{
   let msg;try{msg=JSON.parse(String(raw))}catch{return}
   if(msg.type==='online'&&callVehicleLevel[msg.vehicle]&&(user.vehicles||'').split(',').includes(msg.vehicle)){ws.vehicle=msg.vehicle;callSend(ws,{type:'call_ready'});for(const q of callQueues.values())if(!q.driverId){clearTimeout(q.timer);nextOffer(q)}recoverPendingCalls().catch(err=>console.error('[CALL RECOVER]',err.message));return}
-  if(msg.type==='offline'){ws.vehicle=null;for(const q of callQueues.values())if(q.driverId===ws.userId)nextOffer(q);dispatchWaitingOrders();return}
+  if(msg.type==='push_register'){nativePush.register(user,msg,sessionHash);return;}
+  if(msg.type==='location'){
+   const p=msg.position||{},lat=p.latitude,lng=p.longitude,accuracy=p.accuracy,time=p.timestamp;
+   if(!ws.vehicle||![lat,lng,accuracy,time].every(Number.isFinite)||Math.abs(lat)>90||Math.abs(lng)>180||accuracy<0||accuracy>100000||Math.abs(Date.now()-time)>120000||Date.now()-(ws.lastPositionAt||0)<5000)return;
+   ws.lastPositionAt=Date.now();
+   try{await pool.execute('INSERT INTO zap_driver_positions (user_id,latitude,longitude,accuracy,captured_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE latitude=VALUES(latitude),longitude=VALUES(longitude),accuracy=VALUES(accuracy),captured_at=VALUES(captured_at)',[user.id,lat,lng,accuracy,new Date(time)]);}catch(err){console.error('[DRIVER GPS]',safeErrorCode(err));}
+   return;
+  }
+  if(msg.type==='offline'){nativePush.remove(ws.userId);ws.vehicle=null;for(const q of callQueues.values())if(q.driverId===ws.userId)nextOffer(q);dispatchWaitingOrders();return}
   if(!['accept','reject'].includes(msg.type))return;
   const id=String(msg.orderId||''),q=callQueues.get(id);
   if(!/^\d+$/.test(id)||!q||q.driverId!==ws.userId||!ws.vehicle){callSend(ws,{type:'call_error',orderId:id,message:'Esta chamada não está mais disponível.'});return}
@@ -635,12 +654,13 @@ callWss.on('connection',(ws,req,user)=>{
    for(const socket of callSockets.get(ws.userId)||[])callSend(socket,{type:'call_accepted',order:q.order});
   }catch(err){console.error('[CALL ACCEPT]',err.message);callSend(ws,{type:'call_error',orderId:id,message:'Não foi possível aceitar o pedido.'})}
  });
- ws.on('close',()=>{sockets.delete(ws);if(!sockets.size)callSockets.delete(ws.userId);for(const q of callQueues.values())if(q.driverId===ws.userId&&![...sockets].some(peer=>peer.readyState===WebSocket.OPEN&&callVehicleLevel[peer.vehicle]>=callVehicleLevel[q.order.vehicle]))nextOffer(q);dispatchWaitingOrders()});
+ ws.on('close',()=>{sockets.delete(ws);if(!sockets.size)callSockets.delete(ws.userId);for(const q of callQueues.values())if(q.driverId===ws.userId&&!nativePush.candidates(q.order.vehicle).includes(ws.userId)&&![...sockets].some(peer=>peer.readyState===WebSocket.OPEN&&callVehicleLevel[peer.vehicle]>=callVehicleLevel[q.order.vehicle]))nextOffer(q);dispatchWaitingOrders()});
 });
 
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
+  if (apkDownload(req,res,path)) return;
   if (path.startsWith('/api/admin/')) {if(await adminRoutes(req,res,path)) return;}
   if (mapsBrowserConfig(req,res,path)) return;
   if (await locationAliasRoutes(req,res,path)) return;

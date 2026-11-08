@@ -3,3 +3,9 @@ node_modules/
 .env.*
 !.env.example
 npm-debug.log*
+
+android/local.properties
+artifacts/
+*.jks
+*.keystore
+android/app/google-services.json

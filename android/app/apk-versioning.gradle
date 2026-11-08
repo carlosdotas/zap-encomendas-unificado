@@ -1,0 +1,32 @@
+// Used by Android Studio and the command line. Lint/sync do not advance the version.
+def versionFile = rootProject.file('../mobile/version.properties')
+def versionState = new Properties()
+versionFile.withInputStream { versionState.load(it) }
+def publishedFile = rootProject.file('../downloads/latest.json')
+def publishedCode = publishedFile.exists() ? (new groovy.json.JsonSlurper().parse(publishedFile).versionCode as int) : 0
+def nextCode = Math.max(Integer.parseInt(versionState.getProperty('versionCode')), publishedCode) + 1
+def baseVersion = versionState.getProperty('baseVersion')
+def nextName = "${baseVersion}.${nextCode - 1}"
+android.defaultConfig.versionCode = nextCode
+android.defaultConfig.versionName = nextName
+
+android.applicationVariants.all { variant ->
+    variant.assembleProvider.configure {
+        doLast {
+            def apk = variant.outputs.first().outputFile
+            if (!apk.exists() || apk.name.endsWith('-unsigned.apk')) {
+                throw new GradleException('O APK precisa estar assinado para atualizar o download. Use assembleDebug para teste ou configure a assinatura release.')
+            }
+            // Commit the build number before publishing, so a publication retry cannot reuse it.
+            versionState.setProperty('versionCode', nextCode.toString())
+            def temp = new File(versionFile.path + '.tmp')
+            temp.withOutputStream { versionState.store(it, 'Ultima compilacao Android') }
+            java.nio.file.Files.move(temp.toPath(), versionFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+            project.exec {
+                workingDir rootProject.file('..')
+                commandLine 'node', 'scripts/publish-apk.js', apk.absolutePath, nextName, nextCode.toString()
+            }
+            logger.lifecycle("APK ${nextName} (${nextCode}) publicado em /downloads/zap-encomendas.apk")
+        }
+    }
+}
