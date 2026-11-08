@@ -368,7 +368,7 @@ async function locationAliasRoutes(req,res,path){
  await ensureDatabase();
  if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true;}
  const user=await getSession(req);
- if(!user||user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras autenticadas podem nomear locais'});return true;}
+ if(!user||user.isMaster||user.role!=='transportadora'){sendJson(res,403,{error:'Use uma conta de transportadora real para nomear locais.'});return true;}
  if(req.headers.origin){let origin='';try{origin=new URL(req.headers.origin).host}catch{}const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}}
  let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true;}
  const name=String(body.name||'').trim(),address=String(body.address||'').trim(),placeId=String(body.place_id||'').trim()||null,lat=Number(body.lat),lng=Number(body.lng);
@@ -393,7 +393,7 @@ async function googleAddressSearch(req,res,path) {
  const where=terms.map(()=>"(LOWER(name) LIKE ? OR LOWER(address) LIKE ?)").join(' AND ');
  const params=terms.flatMap(t=>['%'+t+'%','%'+t+'%']);
  const user=await getSession(req);
- if(user?.role==='transportadora'){
+ if(user?.role==='transportadora'&&!user.isMaster){
   const aliasWhere=terms.map(()=>"(LOWER(custom_name) LIKE ? OR LOWER(address) LIKE ?)").join(' AND ');
   const [aliases]=await pool.execute('SELECT place_id,custom_name,address,latitude,longitude FROM zap_location_aliases WHERE owner_user_id=? AND '+aliasWhere+' ORDER BY updated_at DESC LIMIT 8',[user.id,...params]);
   if(aliases.length){sendJson(res,200,{source:'custom',results:aliases.map(p=>({place_id:p.place_id,name:p.custom_name,display_name:p.address,lat:Number(p.latitude),lon:Number(p.longitude)}))});return true;}
