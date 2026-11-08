@@ -470,13 +470,72 @@ async function savedPlacesRoutes(req,res,path){
  sendJson(res,200,{results});return true;
 }
 
+function mapsUrlFromInput(value){
+ const match=String(value||'').match(/https?:\/\/[^\s<>\])]+/i);
+ if(!match)return null;
+ try{
+  const url=new URL(match[0].replace(/[.,;]+$/,''));
+  const host=url.hostname.toLowerCase();
+  if(!['maps.app.goo.gl','goo.gl','maps.google.com','www.google.com','google.com','www.google.com.br','google.com.br'].includes(host))return null;
+  if(host==='goo.gl'&&!url.pathname.startsWith('/maps'))return null;
+  if((host.includes('google.com')||host.includes('google.com.br'))&&!(/\/maps|^\/\?/.test(url.pathname)))return null;
+  return url;
+ }catch{return null}
+}
+async function expandMapsUrl(url){
+ let current=url;
+ for(let i=0;i<5;i++){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
+  try{
+   const response=await fetch(current.href,{redirect:'manual',signal:controller.signal,headers:{'User-Agent':'Mozilla/5.0 ZapEncomendas/1.0'}});
+   const next=response.headers.get('location');
+   if(!next||![301,302,303,307,308].includes(response.status))return current;
+   const target=new URL(next,current);
+   if(target.protocol!=='https:'||!mapsUrlFromInput(target.href))throw Error('Redirecionamento fora do Google Maps');
+   current=target;
+  }finally{clearTimeout(timer)}
+ }
+ return current;
+}
+function parseMapsLocation(url){
+ const decoded=decodeURIComponent(url.href.replace(/\+/g,'%20'));
+ const candidates=[
+  decoded.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/),
+  decoded.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/),
+  decoded.match(/[?&](?:q|ll|query|center)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
+ ];
+ const coords=candidates.find(Boolean);
+ let lat=coords?Number(coords[1]):null,lon=coords?Number(coords[2]):null;
+ if(lat!==null&&(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)){lat=null;lon=null}
+ const placePath=decoded.match(/\/maps\/place\/([^/?@]+)/);
+ const name=placePath?placePath[1].replace(/\+/g,' ').trim():'';
+ const q=url.searchParams.get('q')||url.searchParams.get('query')||'';
+ const term=(name||(!/^[-\d.,\s]+$/.test(q)?q:'')).slice(0,180);
+ return {lat,lon,term};
+}
 async function googleAddressSearch(req,res,path) {
  if(path!=='/api/maps/search' || req.method!=='GET')return false;
- const query=new URL(req.url,'http://localhost').searchParams.get('q')?.trim()||'';
- if(query.length<3||query.length>200){sendJson(res,400,{error:'Informe um endereço de 3 a 200 caracteres.'});return true;}
+ let query=new URL(req.url,'http://localhost').searchParams.get('q')?.trim()||'';
+ const mapsUrl=mapsUrlFromInput(query);
+ if(query.length<3||query.length>2000){sendJson(res,400,{error:'Informe um endereço de 3 a 200 caracteres.'});return true;}
  if(rateLimit(req,'maps-search')){sendJson(res,429,{error:'Limite de buscas atingido. Tente novamente mais tarde.'});return true;}
  await ensureDatabase();
  if(!databaseStatus.ok || migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco de locais indisponível',diagnostic:databaseDiagnostics()});return true;}
+ if(mapsUrl){
+  let expanded,parsed;
+  try{expanded=await expandMapsUrl(mapsUrl);parsed=parseMapsLocation(expanded)}catch(err){sendJson(res,422,{error:'Não foi possível abrir o link do Maps. Confira se ele é público e válido.'});return true}
+  if(parsed.lat!==null){
+   const lat=parsed.lat,lon=parsed.lon;
+   const [known]=await pool.execute('SELECT place_id,name,address,latitude,longitude FROM zap_locations WHERE ABS(latitude-?)<0.00003 AND ABS(longitude-?)<0.00003 ORDER BY updated_at DESC LIMIT 1',[lat,lon]);
+   if(known.length){const p=known[0];sendJson(res,200,{source:'maps-link',results:[{place_id:p.place_id,name:p.name,display_name:p.address,lat:Number(p.latitude),lon:Number(p.longitude)}]});return true}
+   if(!parsed.term){
+    const label='Local compartilhado pelo Google Maps';
+    sendJson(res,200,{source:'maps-link',results:[{name:label,display_name:lat.toFixed(6)+', '+lon.toFixed(6),lat,lon}]});return true;
+   }
+  }
+  if(!parsed.term){sendJson(res,422,{error:'O link não contém endereço ou coordenadas identificáveis.'});return true}
+  query=parsed.term;
+ }
  const normalized=normalizeLocationSearch(query);
  const terms=normalized.split(' ').filter(w=>w.length>=2).slice(0,8);
  if(!terms.length){sendJson(res,400,{error:'Informe um local válido.'});return true;}
