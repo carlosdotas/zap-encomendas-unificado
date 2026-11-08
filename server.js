@@ -54,6 +54,9 @@ const migrations = [
   ]],
   [6, [
     "CREATE TABLE IF NOT EXISTS zap_quick_clients (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, owner_user_id BIGINT UNSIGNED NOT NULL, name VARCHAR(160) NOT NULL, contact_name VARCHAR(160) NOT NULL, document_number VARCHAR(14) NOT NULL, phone VARCHAR(20) NOT NULL, address VARCHAR(600) NOT NULL, latitude DECIMAL(10,7) NULL, longitude DECIMAL(10,7) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_quick_owner (owner_user_id), KEY idx_quick_name (name)) ENGINE=InnoDB"
+  ]],
+  [7, [
+    "CREATE TABLE IF NOT EXISTS zap_location_aliases (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, owner_user_id BIGINT UNSIGNED NOT NULL, place_id VARCHAR(255) NULL, custom_name VARCHAR(255) NOT NULL, address VARCHAR(600) NOT NULL, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_alias_owner_place (owner_user_id,place_id), KEY idx_alias_name (custom_name(100))) ENGINE=InnoDB"
   ]]
 ];
 
@@ -334,6 +337,23 @@ async function orderRoutes(req,res,path) {
 
 
 
+
+async function locationAliasRoutes(req,res,path){
+ if(path!=='/api/maps/alias'||req.method!=='POST')return false;
+ await ensureDatabase();
+ if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true;}
+ const user=await getSession(req);
+ if(!user||user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras autenticadas podem nomear locais'});return true;}
+ if(req.headers.origin){let origin='';try{origin=new URL(req.headers.origin).host}catch{}const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}}
+ let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true;}
+ const name=String(body.name||'').trim(),address=String(body.address||'').trim(),placeId=String(body.place_id||'').trim()||null,lat=Number(body.lat),lng=Number(body.lng);
+ if(name.length<2||name.length>255||address.length<2||address.length>600||(placeId&&placeId.length>255)||!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180){sendJson(res,400,{error:'Local inválido'});return true;}
+ const [existing]=await pool.execute('SELECT id FROM zap_location_aliases WHERE owner_user_id=? AND ((place_id IS NOT NULL AND place_id=?) OR (ABS(latitude-?)<0.00001 AND ABS(longitude-?)<0.00001)) LIMIT 1',[user.id,placeId,lat,lng]);
+ if(existing.length)await pool.execute('UPDATE zap_location_aliases SET custom_name=?,address=?,place_id=?,latitude=?,longitude=? WHERE id=? AND owner_user_id=?',[name,address,placeId,lat,lng,existing[0].id,user.id]);
+ else await pool.execute('INSERT INTO zap_location_aliases (owner_user_id,place_id,custom_name,address,latitude,longitude) VALUES (?,?,?,?,?,?)',[user.id,placeId,name,address,lat,lng]);
+ sendJson(res,200,{ok:true});return true;
+}
+
 function normalizeLocationSearch(q){return String(q||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
 async function googleAddressSearch(req,res,path) {
  if(path!=='/api/maps/search' || req.method!=='GET')return false;
@@ -347,6 +367,12 @@ async function googleAddressSearch(req,res,path) {
  if(!terms.length){sendJson(res,400,{error:'Informe um local válido.'});return true;}
  const where=terms.map(()=>"(LOWER(name) LIKE ? OR LOWER(address) LIKE ?)").join(' AND ');
  const params=terms.flatMap(t=>['%'+t+'%','%'+t+'%']);
+ const user=await getSession(req);
+ if(user?.role==='transportadora'){
+  const aliasWhere=terms.map(()=>"(LOWER(custom_name) LIKE ? OR LOWER(address) LIKE ?)").join(' AND ');
+  const [aliases]=await pool.execute('SELECT place_id,custom_name,address,latitude,longitude FROM zap_location_aliases WHERE owner_user_id=? AND '+aliasWhere+' ORDER BY updated_at DESC LIMIT 8',[user.id,...params]);
+  if(aliases.length){sendJson(res,200,{source:'custom',results:aliases.map(p=>({place_id:p.place_id,name:p.custom_name,display_name:p.address,lat:Number(p.latitude),lon:Number(p.longitude)}))});return true;}
+ }
  const [saved]=await pool.execute('SELECT place_id,name,address,latitude,longitude FROM zap_locations WHERE (expires_at IS NULL OR expires_at > UTC_TIMESTAMP()) AND '+where+' ORDER BY source DESC, updated_at DESC LIMIT 8',params);
  if(saved.length){
   sendJson(res,200,{source:'database',results:saved.map(p=>({place_id:p.place_id,name:p.name,display_name:p.address,lat:Number(p.latitude),lon:Number(p.longitude)}))});return true;
@@ -378,6 +404,7 @@ async function googleAddressSearch(req,res,path) {
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
+  if (await locationAliasRoutes(req,res,path)) return;
   if (await googleAddressSearch(req,res,path)) return;
   if (await quickClientRoutes(req,res,path)) return;
   if (path.startsWith('/api/orders')) {if(await orderRoutes(req,res,path)) return;}
