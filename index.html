@@ -718,7 +718,13 @@
 .carrier-map-page.carrier-dialog-active .carrier-places-backdrop,
 .carrier-map-page.carrier-dialog-active .carrier-order-detail-backdrop,
 .carrier-map-page.carrier-dialog-active .zap-client-modal-backdrop{pointer-events:auto!important}
-</style></head>
+</style><style>
+/* A busca de endereços acompanha o teclado virtual sem esconder o campo digitado. */
+.carrier-map-page.zap-search-keyboard-open .carrier-map-bottom:not(.carrier-config-collapsed){bottom:var(--zap-search-keyboard-bottom,0px)!important;max-height:var(--zap-search-visible-height,60dvh)!important;overflow-y:auto;z-index:13000!important;scroll-padding-top:12px;scroll-padding-bottom:12px}
+.carrier-map-page.zap-search-keyboard-open .carrier-map-bottom .carrier-search{position:sticky;top:0;z-index:5;background:#fff}
+.carrier-map-page.zap-search-keyboard-open .carrier-address-results-scroll{max-height:min(38dvh,240px);overflow-y:auto}
+</style>
+</head>
 <body><div id="root"></div>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="text/babel">
@@ -1233,6 +1239,38 @@ function CarrierDashboard({onBack}){
   const timer=setTimeout(()=>{if(field){try{field.focus({preventScroll:true})}catch(e){field.focus()}focusField()}},180);
   return ()=>{clearTimeout(timer);cancelAnimationFrame(raf);vv?.removeEventListener('resize',adjust);vv?.removeEventListener('scroll',adjust);window.removeEventListener('resize',adjust);field?.removeEventListener('focus',focusField);root.classList.remove('zap-keyboard-open');root.style.removeProperty('--zap-keyboard-bottom');root.style.removeProperty('--zap-visible-height')};
  },[selected,configCollapsed]);
+ useEffect(()=>{
+  if(selected||viewOrder)return;
+  const root=document.querySelector('.carrier-map-page');
+  const input=addressSearchRef.current;
+  if(!root||!input)return;
+  let raf=0;
+  const adjust=()=>{
+   cancelAnimationFrame(raf);
+   raf=requestAnimationFrame(()=>{
+    const focused=document.activeElement===input;
+    const vv=window.visualViewport;
+    const viewportHeight=window.innerHeight;
+    const visible=vv?vv.height:viewportHeight;
+    const top=vv?vv.offsetTop:0;
+    const covered=Math.max(0,viewportHeight-(top+visible));
+    const keyboardOpen=focused&&covered>100;
+    root.classList.toggle('zap-search-keyboard-open',keyboardOpen);
+    root.style.setProperty('--zap-search-keyboard-bottom',keyboardOpen?covered+'px':'0px');
+    root.style.setProperty('--zap-search-visible-height',Math.max(140,visible-12)+'px');
+   });
+  };
+  const onFocus=()=>{adjust();setTimeout(adjust,100);setTimeout(adjust,350)};
+  const onBlur=()=>setTimeout(adjust,80);
+  const vv=window.visualViewport;
+  vv?.addEventListener('resize',adjust);
+  vv?.addEventListener('scroll',adjust);
+  window.addEventListener('resize',adjust);
+  input.addEventListener('focus',onFocus);
+  input.addEventListener('blur',onBlur);
+  adjust();
+  return()=>{cancelAnimationFrame(raf);vv?.removeEventListener('resize',adjust);vv?.removeEventListener('scroll',adjust);window.removeEventListener('resize',adjust);input.removeEventListener('focus',onFocus);input.removeEventListener('blur',onBlur);root.classList.remove('zap-search-keyboard-open');root.style.removeProperty('--zap-search-keyboard-bottom');root.style.removeProperty('--zap-search-visible-height')};
+ },[selected,viewOrder]);
  function choose(place){const suggested=String(place.name||place.place||String(place.display_name||'').split(',')[0]||'').trim();const isPublic=/^(rua|avenida|av\.?|travessa|alameda|rodovia|estrada|praça|praca|parque|largo|via|beco|quadra|setor|bairro|logradouro|ponte|rotatória|rotatoria|calçada|calcada|terminal|ponto de ônibus|ponto de onibus)\b/i.test(suggested)||(!place.name&&/^(rua|avenida|travessa|rodovia|estrada|praça|praca|parque|bairro)\b/i.test(String(place.display_name||'')));setPublicPlaceNeedsName(isPublic);setPlaceName(isPublic?'':suggested);setConfigCollapsed(false);setClientQuery('');setClientSuggestions(false);setForm({type:'coleta',vehicle:'moto',carrier:'Zap Encomendas',client:'',clientPhone:'',closesAt:'',instructions:''});setViewOrder(null);setEditingOrderId(null);setPlacesDialog(false);setSelected(place);setResults([]);setQuery(place.display_name||place.place);setMessage('');if(mapRef.current){const ll=[Number(place.lat),Number(place.lon??place.lng)];if(pinRef.current)pinRef.current.remove();pinRef.current=L.marker(ll).addTo(mapRef.current);mapRef.current.setView(ll,16);
     // Reposiciona o ponto acima do painel inferior, depois que o formulário abrir.
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
