@@ -186,6 +186,7 @@ async function authRoutes(req,res,path) {
   const parts=user?.password_hash?.split(':')||[];
   const valid=parts.length===3 && parts[0]==='scrypt' && secureEquals(parts[2],hashPassword(password,parts[1]));
   if(!valid) {sendJson(res,401,{error:'Telefone ou senha incorretos.'});return true;}
+  if(body.role && body.role!==user.role) {sendJson(res,403,{error:'Esta conta pertence a outro tipo de acesso.'});return true;}
   await loginSession(req,res,user);return true;
 }
 
