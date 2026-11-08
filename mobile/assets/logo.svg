@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="Zap Encomendas">
+ <circle cx="500" cy="500" r="486" fill="#faf7f2" stroke="#193b59" stroke-width="20"/>
+ <path d="M135 462 A370 370 0 0 1 772 265 L826 218 838 413 662 350 719 306 A290 290 0 0 0 208 462 Q172 435 135 462Z" fill="#193b59"/>
+ <circle cx="171" cy="524" r="36" fill="#193b59"/>
+ <path d="M866 558 A370 370 0 0 1 233 742 L183 799 169 613 345 675 292 718 A290 290 0 0 0 795 558 Q835 583 866 558Z" fill="#f58220"/>
+ <circle cx="837" cy="499" r="36" fill="#f58220"/>
+ <path d="M354 421 504 339 651 421 651 603 504 686 354 603Z" fill="#193b59" stroke="#193b59" stroke-width="8" stroke-linejoin="round"/>
+ <path d="M354 421 504 505 651 421 M504 505V682" fill="none" stroke="#f58220" stroke-width="19" stroke-linejoin="round"/>
+ <path d="M409 452 561 370 599 390 443 474 443 535 421 514 409 523Z" fill="#f58220"/>
+ <path d="M453 476 605 394" fill="none" stroke="#f58220" stroke-width="18"/>
+</svg>

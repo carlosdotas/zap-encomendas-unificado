@@ -181,3 +181,13 @@ não exige reiniciar o processo. Envie o novo arquivo `.apk` antes de substituir
 `latest.json`, para manter o download disponível durante o envio.
 Em hospedagem com armazenamento temporário,
 use um volume persistente para essa pasta ou inclua o APK em cada implantação.
+
+### Ícone original do sistema
+
+O aplicativo usa os mesmos traçados e cores do SVG do componente `Logo` em
+`index.html`. O arquivo vetorial extraído fica em `mobile/assets/logo.svg`.
+Execute `npm run android:icons` para regenerar o vetor Android, os PNGs em todas
+as densidades e as adaptações monocromáticas. `npm run android:sync` já executa
+essa geração antes de sincronizar o Capacitor. O logo fica dentro da área segura
+do ícone adaptativo para preservar o círculo e as setas nas máscaras do Android.
+A tela de inicialização também usa esse vetor.
