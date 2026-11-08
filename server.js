@@ -51,7 +51,11 @@ const migrations = [
   ]],
   [5, [
     "CREATE TABLE IF NOT EXISTS zap_locations (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, place_id VARCHAR(255) NULL, name VARCHAR(255) NOT NULL, address VARCHAR(600) NOT NULL, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, source ENUM('google','pedido') NOT NULL DEFAULT 'google', expires_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_zap_location_place (place_id), KEY idx_zap_location_name (name(100)), KEY idx_zap_location_expiry (expires_at)) ENGINE=InnoDB"
-  ]]];
+  ]],
+  [6, [
+    "CREATE TABLE IF NOT EXISTS zap_quick_clients (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, owner_user_id BIGINT UNSIGNED NOT NULL, name VARCHAR(160) NOT NULL, contact_name VARCHAR(160) NOT NULL, document_number VARCHAR(14) NOT NULL, phone VARCHAR(20) NOT NULL, address VARCHAR(600) NOT NULL, latitude DECIMAL(10,7) NULL, longitude DECIMAL(10,7) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_quick_owner (owner_user_id), KEY idx_quick_name (name)) ENGINE=InnoDB"
+  ]]
+];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
 function safeErrorCode(err) { return String(err?.code || 'ERRO_DESCONHECIDO').replace(/[^A-Z0-9_]/g,'').slice(0,60); }
@@ -262,6 +266,30 @@ async function authRoutes(req,res,path) {
 function mapOrder(row) {
  return {id:String(row.id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',instructions:row.instructions||'',status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
 }
+
+async function quickClientRoutes(req,res,path){
+ if(path!=='/api/clients'||!['GET','POST'].includes(req.method))return false;
+ await ensureDatabase();
+ if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true;}
+ const user=await getSession(req);
+ if(!user){sendJson(res,401,{error:'Faça login para acessar clientes'});return true;}
+ if(user.role!=='transportadora'){sendJson(res,403,{error:'Acesso restrito a transportadoras'});return true;}
+ if(req.method==='GET'){
+  const [rows]=await pool.execute('SELECT id,name,contact_name,document_number,phone,address,latitude,longitude FROM zap_quick_clients WHERE owner_user_id=? ORDER BY id DESC LIMIT 500',[user.id]);
+  sendJson(res,200,{clients:rows.map(c=>({id:String(c.id),name:c.name,contactName:c.contact_name,document:c.document_number,phone:c.phone,address:c.address,lat:c.latitude===null?null:Number(c.latitude),lng:c.longitude===null?null:Number(c.longitude)}))});return true;
+ }
+ if(req.headers.origin){let origin='';try{origin=new URL(req.headers.origin).host}catch{}const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}}
+ if(rateLimit(req,'quick-client')){sendJson(res,429,{error:'Muitas tentativas. Aguarde alguns minutos.'});return true;}
+ let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true;}
+ const name=String(body.name||'').trim(),contact=String(body.contactName||'').trim(),phone=phoneDigits(body.phone),document=String(body.document||'').replace(/\D/g,''),address=String(body.address||'').trim();
+ const lat=body.lat==null?null:Number(body.lat),lng=body.lng==null?null:Number(body.lng);
+ if(name.length<2||name.length>160||contact.length<2||contact.length>160||!/^\d{10,11}$/.test(phone)||![11,14].includes(document.length)||address.length<5||address.length>600||(lat!==null&&(!Number.isFinite(lat)||lat < -90||lat>90))||(lng!==null&&(!Number.isFinite(lng)||lng < -180||lng>180))||((lat===null)!==(lng===null))){
+  sendJson(res,400,{error:'Informe nome, contato, CPF/CNPJ, telefone e localização.'});return true;
+ }
+ const [result]=await pool.execute('INSERT INTO zap_quick_clients (owner_user_id,name,contact_name,document_number,phone,address,latitude,longitude) VALUES (?,?,?,?,?,?,?,?)',[user.id,name,contact,document,phone,address,lat,lng]);
+ sendJson(res,201,{client:{id:String(result.insertId),name,contactName:contact,document,phone,address,lat,lng}});return true;
+}
+
 async function orderRoutes(req,res,path) {
  if(!path.startsWith('/api/orders')) return false;
  if(!['GET','POST','PUT'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true;}
@@ -351,6 +379,7 @@ const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
   if (await googleAddressSearch(req,res,path)) return;
+  if (await quickClientRoutes(req,res,path)) return;
   if (path.startsWith('/api/orders')) {if(await orderRoutes(req,res,path)) return;}
   if (path.startsWith('/api/auth/')) {
     if(await authRoutes(req,res,path)) return;
