@@ -252,8 +252,18 @@ async function authRoutes(req,res,path) {
   }
   const phone=phoneDigits(body.phone), password=body.password;
   const master=masterConfig();
-  if(path==='/api/auth/login'&&master&&secureTextMatch(phone,master.phone)&&secureTextMatch(password,master.password)){
-    const role=body.role==='transportadora'?'transportadora':'motorista';setMasterCookie(req,res,role);sendJson(res,200,{ok:true,user:publicUser(masterIdentity(role))});return true;
+  // A autenticacao mestre nunca consulta o MySQL, nem em caso de senha incorreta.
+  const masterPhone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');
+  if(path==='/api/auth/login' && masterPhone.length>=10 && secureTextMatch(phone,masterPhone)){
+    if(!master){
+      sendJson(res,503,{error:'Acesso mestre não configurado. Verifique MASTER_AUTH_PHONE, MASTER_AUTH_PASSWORD e MASTER_AUTH_SECRET no servidor.'});return true;
+    }
+    if(typeof password!=='string'||!secureTextMatch(password,master.password)){
+      sendJson(res,401,{error:'Telefone ou senha incorretos.'});return true;
+    }
+    const role=body.role==='transportadora'?'transportadora':'motorista';
+    setMasterCookie(req,res,role);
+    sendJson(res,200,{ok:true,user:publicUser(masterIdentity(role))});return true;
   }
   if(!pool||!databaseStatus.ok||migrationStatus!=='atualizado')await ensureDatabase();
   if(!pool||!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco de dados indisponível',diagnostic:databaseDiagnostics()});return true;}
