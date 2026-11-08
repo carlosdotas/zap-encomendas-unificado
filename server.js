@@ -504,9 +504,9 @@ async function googleAddressSearch(req,res,path) {
    place_id:p.id,name:p.displayName?.text||p.formattedAddress||'Local',display_name:p.formattedAddress||p.displayName?.text||'Local',
    lat:p.location.latitude,lon:p.location.longitude
   }));
-  // Conteúdo obtido do Google é temporário; IDs podem ser mantidos, demais dados expiram.
+  // Cada resultado retornado pela busca é salvo automaticamente no MySQL, sem precisar selecionar ou cadastrar pedido. Dados do Google permanecem em cache por até 30 dias; o place_id pode ser preservado.
   for(const p of results){
-   await pool.execute("INSERT INTO zap_locations (place_id,name,address,latitude,longitude,source,expires_at) VALUES (?,?,?,?,?,'google',DATE_ADD(UTC_TIMESTAMP(),INTERVAL 24 HOUR)) ON DUPLICATE KEY UPDATE name=VALUES(name),address=VALUES(address),latitude=VALUES(latitude),longitude=VALUES(longitude),source='google',expires_at=VALUES(expires_at)",[p.place_id,p.name,p.display_name,p.lat,p.lon]);
+   await pool.execute("INSERT INTO zap_locations (place_id,name,address,latitude,longitude,source,expires_at) VALUES (?,?,?,?,?,'google',DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 DAY)) ON DUPLICATE KEY UPDATE name=VALUES(name),address=VALUES(address),latitude=VALUES(latitude),longitude=VALUES(longitude),source='google',expires_at=VALUES(expires_at)",[p.place_id,p.name,p.display_name,p.lat,p.lon]);
   }
   sendJson(res,200,{source:'google',results});return true;
  }catch(err){console.error('[MAPS]',err.code||err.name||'ERROR');sendJson(res,502,{error:'Não foi possível consultar o Google Maps agora.'});return true;}
