@@ -426,13 +426,13 @@ async function orderProofRoutes(req,res,path){
  await ensureDatabase();
  if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true;}
  const user=await getSession(req);
- if(!user||user.role!=='motorista'){sendJson(res,403,{error:'Acesso restrito ao profissional'});return true;}
+ if(!user||(user.role!=='motorista'&&!(req.method==='GET'&&user.role==='transportadora'))){sendJson(res,403,{error:'Acesso restrito ao profissional ou transportadora responsável'});return true;}
  const orderId=match[1];
- const [orders]=await pool.execute('SELECT id,driver_id,service_type,status FROM zap_order_entries WHERE id=? AND driver_id=?',[orderId,user.id]);
+ const [orders]=await pool.execute(user.role==='transportadora'?'SELECT id,driver_id,service_type,status FROM zap_order_entries WHERE id=? AND owner_user_id=?':'SELECT id,driver_id,service_type,status FROM zap_order_entries WHERE id=? AND driver_id=?',[orderId,user.id]);
  if(!orders.length){sendJson(res,404,{error:'Pedido não atribuído a este profissional'});return true;}
  if(req.method==='GET'){
   if(match[2]&&match[3]){
-   const [photos]=await pool.execute('SELECT p.mime_type,p.image_data FROM zap_order_proof_photos p JOIN zap_order_proofs f ON f.id=p.proof_id WHERE p.id=? AND f.id=? AND f.order_id=? AND f.driver_id=?',[match[3],match[2],orderId,user.id]);
+   const [photos]=await pool.execute('SELECT p.mime_type,p.image_data FROM zap_order_proof_photos p JOIN zap_order_proofs f ON f.id=p.proof_id WHERE p.id=? AND f.id=? AND f.order_id=?',[match[3],match[2],orderId]);
    if(!photos.length){sendJson(res,404,{error:'Foto não encontrada'});return true;}
    res.writeHead(200,{'Content-Type':photos[0].mime_type,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});res.end(photos[0].image_data);return true;
   }
@@ -500,7 +500,12 @@ async function orderRoutes(req,res,path) {
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras podem cadastrar pedidos'});return true;}
  if(req.method==='GET' && path==='/api/orders') {
    const [rows]=await pool.execute('SELECT o.*,d.full_name AS driver_name FROM zap_order_entries o LEFT JOIN app_users d ON d.id=o.driver_id WHERE o.owner_user_id=? ORDER BY o.id DESC LIMIT 500',[user.id]);
-   sendJson(res,200,{orders:rows.map(mapOrder)});return true;
+   const completedIds=rows.filter(row=>row.status==='concluido').map(row=>row.id);
+   let proofs=[],photos=[];
+   if(completedIds.length){const ids=completedIds.map(()=>'?').join(',');const [p]=await pool.execute('SELECT f.id,f.order_id,f.action,f.created_at,COUNT(ph.id) AS photo_count FROM zap_order_proofs f LEFT JOIN zap_order_proof_photos ph ON ph.proof_id=f.id WHERE f.order_id IN ('+ids+') GROUP BY f.id,f.order_id,f.action,f.created_at',completedIds);proofs=p;
+    if(proofs.length){const [images]=await pool.execute('SELECT id,proof_id FROM zap_order_proof_photos WHERE proof_id IN ('+proofs.map(()=>'?').join(',')+') ORDER BY id',proofs.map(p=>p.id));photos=images;}}
+   const proofMap=new Map(proofs.map(p=>[String(p.order_id),{id:String(p.id),action:p.action,createdAt:p.created_at,photoCount:Number(p.photo_count),photoIds:photos.filter(ph=>String(ph.proof_id)===String(p.id)).map(ph=>String(ph.id))}]));
+   sendJson(res,200,{orders:rows.map(row=>({...mapOrder(row),proof:proofMap.get(String(row.id))||null}))});return true;
  }
  const match=path.match(/^\/api\/orders\/(\d+)$/);
  if(!((req.method==='POST' && path==='/api/orders')||(req.method==='PUT' && match))) {sendJson(res,404,{error:'Pedido não encontrado'});return true;}
