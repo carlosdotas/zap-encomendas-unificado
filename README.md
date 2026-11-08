@@ -1,18 +1,26 @@
-# Zap Encomendas — Projeto Unificado
+# Zap Encomendas — Servidor Node.js + MySQL
 
-Projeto em desenvolvimento para reunir frontend e backend Node.js/MySQL.
+Primeira etapa do projeto unificado. Um único arquivo `server.js` contém o servidor HTTP, página inicial, diagnóstico MySQL e migrações SQL. O `package.json` instala apenas o driver `mysql2`.
 
-## Arquitetura prevista
+## Executar
 
-- Um único `server.js` como ponto de entrada, com servidor HTTP, API JSON e frontend HTML incorporado.
-- Banco MySQL com migrações controladas para clientes, pedidos e motoristas.
-- Página inicial e rota `/health` para diagnosticar servidor e banco.
-- Autenticação antes de permitir operações do frontend em produção.
+1. Disponibilize Node.js 20+ e MySQL na hospedagem.
+2. Configure as variáveis `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` e opcionalmente `PORT` (veja `.env.example`).
+3. Execute `npm install` e `npm start` (ou configure o arquivo inicial `server.js` no painel da hospedagem).
+4. Acesse `/` para visualizar **Servidor iniciado com sucesso!** e `/health` para verificar a conexão com MySQL.
 
-## Estado atual
+> O Node.js não lê automaticamente arquivos `.env` nesta versão. Configure as variáveis diretamente no painel da hospedagem ou use `node --env-file=.env server.js` no Node 20.6+.
 
-Repositório inicializado. A integração do frontend V15 ao servidor Node.js ainda está pendente; **não há aplicação pronta para produção neste repositório**.
+## Banco de dados
+
+O banco `DB_NAME` precisa existir previamente, com usuário autorizado a criar tabelas. Ao iniciar, o servidor verifica e cria, se necessário, as tabelas: `schema_migrations`, `carriers`, `clients`, `drivers`, `orders` e `api_events`. Não apaga dados existentes. O status da conexão aparece na página e em `/health`.
+
+## Situação atual
+
+- Publicado: servidor, página de status, diagnóstico e migração inicial MySQL.
+- Ainda pendente: configurar credenciais reais e confirmar conexão em hospedagem; integrar frontend V15 e rotas CRUD; autenticação e autorização antes de expor dados de clientes/pedidos.
+- **Não é uma aplicação pronta para produção.** Não há rotas públicas de leitura/escrita dos dados nesta etapa.
 
 ## Segurança
 
-Não publique senhas, tokens ou credenciais MySQL. Configure-as nas variáveis de ambiente da hospedagem.
+Não envie senhas, tokens ou arquivos `.env` para o GitHub. Use variáveis de ambiente privadas no servidor.
