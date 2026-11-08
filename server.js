@@ -194,7 +194,7 @@ function setSessionCookie(req,res,token,maxAge) {
   res.setHeader('Set-Cookie','zap_session='+token+'; Path=/; HttpOnly; SameSite=Lax; Max-Age='+maxAge+(secure?'; Secure':''));
 }
 
-function masterConfig(){const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');const password=process.env.MASTER_AUTH_PASSWORD||'';const secret=process.env.MASTER_AUTH_SECRET||'';return phone.length>=10&&password.length>=6&&Buffer.byteLength(secret)>=32?{phone,password,secret}:null;}
+function masterConfig(){const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');const password=process.env.MASTER_AUTH_PASSWORD||'';const secret=process.env.MASTER_AUTH_SECRET||'';return /^\d{10,11}$/.test(phone)&&password.length>=6&&Buffer.byteLength(secret)>=32?{phone,password,secret}:null;}
 function masterIdentity(role){return {id:'master',full_name:'Administrador mestre',phone:process.env.MASTER_AUTH_PHONE||'',role,vehicles:'moto,carro,utilitario',isMaster:true};}
 function masterSession(req){const config=masterConfig();if(!config)return null;const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('zap_master='));if(!cookie)return null;const parts=cookie.slice(11).split('.');if(parts.length!==2)return null;const expected=crypto.createHmac('sha256',config.secret).update(parts[0]).digest();let provided;try{provided=Buffer.from(parts[1],'base64url')}catch{return null}if(provided.length!==expected.length||!crypto.timingSafeEqual(provided,expected))return null;let data;try{data=JSON.parse(Buffer.from(parts[0],'base64url').toString())}catch{return null}if(!['motorista','transportadora'].includes(data.role)||!Number.isFinite(data.exp)||data.exp<Date.now())return null;return masterIdentity(data.role);}
 function setMasterCookie(req,res,role){const config=masterConfig();const payload=Buffer.from(JSON.stringify({role,exp:Date.now()+28800000,nonce:crypto.randomBytes(12).toString('hex')})).toString('base64url');const sig=crypto.createHmac('sha256',config.secret).update(payload).digest('base64url');const secure=req.socket.encrypted||req.headers['x-forwarded-proto']==='https';res.setHeader('Set-Cookie','zap_master='+payload+'.'+sig+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800'+(secure?'; Secure':''));}
@@ -221,6 +221,15 @@ async function loginSession(req,res,user) {
   sendJson(res,200,{ok:true,user:publicUser(user)});
 }
 async function authRoutes(req,res,path) {
+  // Diagnostico sem credenciais: permite identificar configuracao ausente na hospedagem.
+  if(path==='/api/auth/master/status' && req.method==='GET'){
+    const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');
+    const password=process.env.MASTER_AUTH_PASSWORD||'';
+    const secret=process.env.MASTER_AUTH_SECRET||'';
+    const checks={phone: /^\\d{10,11}$/.test(phone),password: password.length>=6,secret:Buffer.byteLength(secret)>=32};
+    sendJson(res,200,{masterAuth:{ready:Object.values(checks).every(Boolean),checks},databaseRequired:false});
+    return true;
+  }
   if(path==='/api/auth/me' && req.method==='GET') {
     const user=await getSession(req);
     sendJson(res,user?200:401,user?{ok:true,user:publicUser(user)}:{ok:false,error:'Sessão não encontrada'});
