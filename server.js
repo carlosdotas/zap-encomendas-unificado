@@ -42,12 +42,15 @@ const migrations = [
   [2, [
     "CREATE TABLE IF NOT EXISTS app_users (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(160) NOT NULL, phone VARCHAR(20) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role ENUM('motorista','transportadora') NOT NULL DEFAULT 'motorista', vehicles VARCHAR(100) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB",
     "CREATE TABLE IF NOT EXISTS auth_sessions (token_hash CHAR(64) PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_sessions_user (user_id), KEY idx_sessions_expiry (expires_at)) ENGINE=InnoDB"
+  ]],
+  [3, [
+    "CREATE TABLE IF NOT EXISTS zap_login_sessions (token_hash CHAR(64) PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_zap_login_user (user_id), KEY idx_zap_login_expiry (expires_at)) ENGINE=InnoDB"
   ]]
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
 function safeErrorCode(err) { return String(err?.code || 'ERRO_DESCONHECIDO').replace(/[^A-Z0-9_]/g,'').slice(0,60); }
-function dbErrorHint(code) { const hints={ER_NO_SUCH_TABLE:'Tabela de autenticação não existe. Verifique as migrações e permissões CREATE TABLE.',ER_BAD_FIELD_ERROR:'A tabela existente tem colunas incompatíveis com o cadastro.',ER_ACCESS_DENIED_ERROR:'Credenciais ou permissões MySQL incorretas.',ER_DBACCESS_DENIED_ERROR:'Usuário sem acesso ao banco configurado.',ER_TABLEACCESS_DENIED_ERROR:'Usuário sem permissão nas tabelas.',ER_BAD_DB_ERROR:'Banco DB_NAME não existe.',ECONNREFUSED:'MySQL recusou a conexão: confira DB_HOST e DB_PORT.',ENOTFOUND:'Endereço DB_HOST não encontrado.',ETIMEDOUT:'Conexão MySQL expirou.',ER_DUP_ENTRY:'Já existe cadastro com esses dados.'};return hints[code]||'Consulte o código do erro nos logs da hospedagem.'; }
+function dbErrorHint(code) { const hints={ER_NO_SUCH_TABLE:'Tabela de autenticação não existe. Verifique as migrações e permissões CREATE TABLE.',ER_BAD_FIELD_ERROR:'A tabela existente tem colunas incompatíveis com o cadastro.',ER_ACCESS_DENIED_ERROR:'Credenciais ou permissões MySQL incorretas.',ER_DBACCESS_DENIED_ERROR:'Usuário sem acesso ao banco configurado.',ER_TABLEACCESS_DENIED_ERROR:'Usuário sem permissão nas tabelas.',ER_BAD_DB_ERROR:'Banco DB_NAME não existe.',ECONNREFUSED:'MySQL recusou a conexão: confira DB_HOST e DB_PORT.',ENOTFOUND:'Endereço DB_HOST não encontrado.',ETIMEDOUT:'Conexão MySQL expirou.',ER_DUP_ENTRY:'Já existe cadastro com esses dados.',ER_NO_REFERENCED_ROW_2:'Uma chave estrangeira aponta para registro ausente. Verifique as relações da tabela mencionada nos logs.'};return hints[code]||'Consulte o código do erro nos logs da hospedagem.'; }
 
 async function reconcileAuthSchema() {
   // CREATE IF NOT EXISTS nao modifica tabelas antigas; corrigir apenas colunas ausentes.
@@ -60,7 +63,7 @@ async function reconcileAuthSchema() {
       vehicles:"VARCHAR(100) NULL",
       created_at:"TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP"
     },
-    auth_sessions: {
+    zap_login_sessions: {
       token_hash:"CHAR(64) NULL",
       user_id:"BIGINT UNSIGNED NULL",
       expires_at:"DATETIME NULL",
@@ -183,7 +186,7 @@ async function getSession(req) {
   const cookie=String(req.headers.cookie || '').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
   if(!cookie) return null;
   const hash=crypto.createHash('sha256').update(cookie[1]).digest('hex');
-  const [rows]=await pool.execute('SELECT u.id,u.full_name,u.phone,u.role,u.vehicles FROM auth_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>NOW() LIMIT 1',[hash]);
+  const [rows]=await pool.execute('SELECT u.id,u.full_name,u.phone,u.role,u.vehicles FROM zap_login_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>NOW() LIMIT 1',[hash]);
   return rows[0] || null;
 }
 function publicUser(user) {
@@ -192,7 +195,7 @@ function publicUser(user) {
 async function loginSession(req,res,user) {
   const token=crypto.randomBytes(32).toString('hex');
   const tokenHash=crypto.createHash('sha256').update(token).digest('hex');
-  await pool.execute('INSERT INTO auth_sessions (token_hash,user_id,expires_at) VALUES (?,?,DATE_ADD(NOW(),INTERVAL 7 DAY))',[tokenHash,user.id]);
+  await pool.execute('INSERT INTO zap_login_sessions (token_hash,user_id,expires_at) VALUES (?,?,DATE_ADD(NOW(),INTERVAL 7 DAY))',[tokenHash,user.id]);
   setSessionCookie(req,res,token,7*24*60*60);
   sendJson(res,200,{ok:true,user:publicUser(user)});
 }
@@ -216,7 +219,7 @@ async function authRoutes(req,res,path) {
   try {body=await readBody(req)} catch(err) {sendJson(res,400,{error:'Corpo da requisição inválido.'});return true;}
   if(path==='/api/auth/logout') {
     const match=String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
-    if(match) await pool.execute('DELETE FROM auth_sessions WHERE token_hash=?',[crypto.createHash('sha256').update(match[1]).digest('hex')]);
+    if(match) await pool.execute('DELETE FROM zap_login_sessions WHERE token_hash=?',[crypto.createHash('sha256').update(match[1]).digest('hex')]);
     setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;
   }
   const phone=phoneDigits(body.phone), password=body.password;
