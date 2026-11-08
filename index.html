@@ -1267,14 +1267,14 @@ function readZapState(key){try{const v=localStorage.getItem(key);return v?JSON.p
 function writeZapState(key,value){zapSessionMemory[key==='zap_auth_state'?'auth':'profile']=value;try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,JSON.stringify(value))}catch{}}
 function App(){
  const [page,setPage]=useState('loading');
- React.useEffect(()=>{fetch('/api/auth/me',{credentials:'same-origin'}).then(async r=>{if(!r.ok)throw new Error('Sem sessão');return r.json()}).then(data=>{const u=data.user;setRole(u.role);setProfile(p=>({...p,name:u.name,phone:u.phone,vehicles:u.vehicles.length?u.vehicles:p.vehicles}));setPage(u.role==='administrador'?'admin':u.role==='transportadora'?'carrier':'map')}).catch(()=>setPage('choose'))},[]);
+ React.useEffect(()=>{fetch('/api/auth/me',{credentials:'same-origin'}).then(async r=>{if(!r.ok)throw new Error('Sem sessão');return r.json()}).then(data=>{const u=data.user;setRole(u.role);setProfile(p=>({...p,id:String(u.id),name:u.name,phone:u.phone,vehicles:u.vehicles.length?u.vehicles:p.vehicles}));setPage(u.role==='administrador'?'admin':u.role==='transportadora'?'carrier':'map')}).catch(()=>setPage('choose'))},[]);
  const [role,setRole]=useState('motorista');
  const [profile,setProfile]=useState(()=>readZapState('zap_profile_demo')||{name:'Motorista',phone:'',photo:'',vehicles:['moto','carro','utilitario']});
  const [activeVehicle,setActiveVehicle]=useState(()=>readZapState('zap_auth_state')?.activeVehicle||'moto');
  const [returnPage,setReturnPage]=useState('map');
  const saveProfile=p=>{setProfile(p);writeZapState('zap_profile_demo',p)};
  const logout=async()=>{try{const response=await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'});if(!response.ok)throw new Error('Falha ao sair');writeZapState('zap_auth_state',null);setPage('choose')}catch{window.alert('Não foi possível encerrar a sessão. Verifique sua conexão e tente novamente.')}};
- const login=(user)=>{setRole(user.role);if(user.role==='administrador'){setPage('admin');return}if(user.role==='transportadora'){setPage('carrier');return}const v=user.vehicles.length?user.vehicles:['moto'];saveProfile({...profile,name:user.name,phone:user.phone,vehicles:v});setActiveVehicle(v[0]);setPage('map')};
+ const login=(user)=>{setRole(user.role);if(user.role==='administrador'){setPage('admin');return}if(user.role==='transportadora'){setPage('carrier');return}const v=user.vehicles.length?user.vehicles:['moto'];saveProfile({...profile,id:String(user.id),name:user.name,phone:user.phone,vehicles:v});setActiveVehicle(v[0]);setPage('map')};
  return page==='loading'?<main className="screen"><p>Verificando sessão...</p></main>:page==='choose'?<RoleChoice onChoose={r=>{setRole(r);setPage('auth')}}/>:page==='auth'?<Auth carrierMode={role==='transportadora'} adminMode={role==='administrador'} onLogin={login}/>:page==='admin'?<AdminDashboard onBack={logout}/>:page==='carrier'?<CarrierDashboard onBack={logout}/>:page==='profile'?<ProfilePage profile={profile} onSave={saveProfile} onBack={()=>setPage(returnPage)}/>:<MapView profile={profile} activeVehicle={activeVehicle} onEnd={logout} onLogout={logout} onProfile={()=>{setReturnPage('map');setPage('profile')}}/>;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
