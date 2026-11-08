@@ -363,8 +363,8 @@ async function quickClientRoutes(req,res,path){
  if(!user){sendJson(res,401,{error:'Faça login para acessar clientes'});return true;}
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Acesso restrito a transportadoras'});return true;}
  if(req.method==='GET'){
-  const [rows]=await pool.execute('SELECT id,name,contact_name,document_number,phone,address,latitude,longitude FROM zap_quick_clients WHERE owner_user_id=? ORDER BY id DESC LIMIT 500',[user.id]);
-  sendJson(res,200,{clients:rows.map(c=>({id:String(c.id),name:c.name,contactName:c.contact_name,document:c.document_number,phone:c.phone,address:c.address,lat:c.latitude===null?null:Number(c.latitude),lng:c.longitude===null?null:Number(c.longitude)}))});return true;
+  const [rows]=await pool.execute('SELECT c.id,c.name,c.contact_name,c.document_number,c.phone,c.address,c.latitude,c.longitude,(SELECT COUNT(*) FROM zap_order_entries o WHERE o.owner_user_id=c.owner_user_id AND (o.client_phone=c.phone AND c.phone<>\'\' OR LOWER(TRIM(o.client_name))=LOWER(TRIM(c.name)) AND c.name<>\'\')) AS usage_count FROM zap_quick_clients c WHERE c.owner_user_id=? ORDER BY usage_count DESC,c.id DESC LIMIT 500',[user.id]);
+  sendJson(res,200,{clients:rows.map(c=>({id:String(c.id),name:c.name,contactName:c.contact_name,document:c.document_number,phone:c.phone,usageCount:Number(c.usage_count)||0,address:c.address,lat:c.latitude===null?null:Number(c.latitude),lng:c.longitude===null?null:Number(c.longitude)}))});return true;
  }
  if(req.headers.origin){let origin='';try{origin=new URL(req.headers.origin).host}catch{}const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}}
  if(rateLimit(req,'quick-client')){sendJson(res,429,{error:'Muitas tentativas. Aguarde alguns minutos.'});return true;}
@@ -451,18 +451,22 @@ async function savedPlacesRoutes(req,res,path){
  await ensureDatabase();
  if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco de locais indisponível'});return true;}
  const [aliases]=await pool.execute('SELECT place_id,custom_name AS name,address,latitude AS lat,longitude AS lon FROM zap_location_aliases WHERE owner_user_id=? ORDER BY updated_at DESC LIMIT 200',[user.id]);
- const [orders]=await pool.execute('SELECT place AS name,address,latitude AS lat,longitude AS lon FROM zap_order_entries WHERE owner_user_id=? ORDER BY updated_at DESC LIMIT 300',[user.id]);
+ const [orders]=await pool.execute('SELECT place AS name,address,latitude AS lat,longitude AS lon FROM zap_order_entries WHERE owner_user_id=? ORDER BY updated_at DESC LIMIT 10000',[user.id]);
  const [locations]=await pool.execute('SELECT place_id,name,address,latitude AS lat,longitude AS lon FROM zap_locations WHERE expires_at IS NULL OR expires_at>UTC_TIMESTAMP() ORDER BY updated_at DESC LIMIT 300');
+ const keyFor=row=>Number(row.lat).toFixed(5)+','+Number(row.lon).toFixed(5);
+ const usage=new Map();
+ for(const row of orders){if(Number.isFinite(Number(row.lat))&&Number.isFinite(Number(row.lon))){const key=keyFor(row);usage.set(key,(usage.get(key)||0)+1)}}
  const seen=new Set(),results=[];
  for(const row of [...aliases,...orders,...locations]){
   const lat=Number(row.lat),lon=Number(row.lon);
   if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;
   const name=String(row.name||'').trim(),address=String(row.address||'').trim();
   if(!name&&!address)continue;
-  const key=lat.toFixed(5)+','+lon.toFixed(5);
+  const key=keyFor(row);
   if(seen.has(key))continue;seen.add(key);
-  results.push({place_id:row.place_id||null,name:name||address.split(',')[0],display_name:address||name,lat,lon});
+  results.push({place_id:row.place_id||null,name:name||address.split(',')[0],display_name:address||name,lat,lon,usageCount:usage.get(key)||0});
  }
+ results.sort((a,b)=>b.usageCount-a.usageCount||a.name.localeCompare(b.name,'pt-BR'));
  sendJson(res,200,{results});return true;
 }
 
