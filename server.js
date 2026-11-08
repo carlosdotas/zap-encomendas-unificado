@@ -460,10 +460,10 @@ async function orderProofRoutes(req,res,path){
   const [existing]=await connection.execute('SELECT id FROM zap_order_proofs WHERE order_id=? AND driver_id=? AND action=? LIMIT 1',[orderId,user.id,action]);
   if(existing.length){await connection.rollback();sendJson(res,409,{error:'Este serviço já foi registrado'});return true;}
   const [saved]=await connection.execute('INSERT INTO zap_order_proofs (order_id,driver_id,action) VALUES (?,?,?)',[orderId,user.id,action]);
-  for(const photo of parsed)await connection.execute('INSERT INTO zap_order_proof_photos (proof_id,mime_type,image_data) VALUES (?,?,?)',[saved.insertId,photo.mime,photo.bytes]);
+  const savedPhotoIds=[];for(const photo of parsed){const [inserted]=await connection.execute('INSERT INTO zap_order_proof_photos (proof_id,mime_type,image_data) VALUES (?,?,?)',[saved.insertId,photo.mime,photo.bytes]);savedPhotoIds.push(String(inserted.insertId));}
   await connection.execute("UPDATE zap_order_entries SET status='concluido' WHERE id=? AND driver_id=? AND status='aceito'",[orderId,user.id]);
   await connection.commit();
-  sendJson(res,201,{ok:true,proofId:String(saved.insertId),photoCount:parsed.length,photoIds:[]});
+  sendJson(res,201,{ok:true,proofId:String(saved.insertId),photoCount:parsed.length,photoIds:savedPhotoIds});
  }catch(e){await connection.rollback();sendJson(res,500,{error:'Não foi possível salvar a confirmação e as fotos'});}finally{connection.release();}
  return true;
 }
