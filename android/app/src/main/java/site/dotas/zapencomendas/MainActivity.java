@@ -21,6 +21,7 @@ public class MainActivity extends BridgeActivity {
     private final BroadcastReceiver events=new BroadcastReceiver(){public void onReceive(Context c,Intent i){dispatch(i.getStringExtra("type"),i.getStringExtra("data"));}};
     @Override protected void load(){
         super.load();
+        SystemBars.configure(this,ContextCompat.getColor(this,R.color.zap_system_bar_surface));
         bridge.getWebView().setDownloadListener((url,agent,disposition,mime,length)->{
             Uri target=Uri.parse(url);
             if("https".equals(target.getScheme())&&"dotas.site".equals(target.getHost())&&"/downloads/zap-encomendas.apk".equals(target.getPath())){

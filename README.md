@@ -191,3 +191,12 @@ as densidades e as adaptações monocromáticas. `npm run android:sync` já exec
 essa geração antes de sincronizar o Capacitor. O logo fica dentro da área segura
 do ícone adaptativo para preservar o círculo e as setas nas máscaras do Android.
 A tela de inicialização também usa esse vetor.
+
+### Barras do Android
+
+O WebView respeita as áreas da barra de status, da navegação inferior e dos
+recortes da tela. No Android 15+, `adjustMarginsForEdgeToEdge: auto` reserva
+essas margens; nas versões anteriores, o sistema ajusta a janela normalmente.
+O fundo das barras do aplicativo é claro, com relógio, bateria e botões escuros,
+independentemente do CSS do site. A tela nativa de chamada mantém fundo escuro
+com ícones claros e também protege seu conteúdo contra as barras e recortes.
