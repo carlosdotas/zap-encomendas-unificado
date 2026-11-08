@@ -839,7 +839,7 @@ useEffect(()=>{
    const response=await fetch('/api/orders',{credentials:'same-origin',cache:'no-store'});
    const data=await response.json();
    if(!response.ok)throw Error(data.error||'Não foi possível carregar pedidos');
-   if(active){const next=(data.orders||[]).filter(o=>o.status==='Aguardando motorista'&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lng))).map(o=>({...o,lat:Number(o.lat),lng:Number(o.lng),requestId:String(o.id),closesAt:o.closesAt||''}));setRegisteredRequests(previous=>JSON.stringify(previous)===JSON.stringify(next)?previous:next);}
+   if(active){const next=(data.orders||[]).filter(o=>o.status==='aceito'&&String(o.driverId)===String(profile.id)&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lng))).map(o=>({...o,lat:Number(o.lat),lng:Number(o.lng),requestId:String(o.id),closesAt:o.closesAt||''}));setRegisteredRequests(previous=>JSON.stringify(previous)===JSON.stringify(next)?previous:next);}
   }catch(err){if(active)setToast(err.message||'Falha ao consultar pedidos');}
  }
  refreshOrders();const timer=setInterval(refreshOrders,12000);
@@ -896,7 +896,7 @@ useEffect(()=>{
     if(String(incomingCallRef.current?.requestId)===String(msg.orderId)&&callDecisionRef.current!=='accept')endIncomingOffer();
    }else if(msg.type==='call_accepted'){
     const job={...msg.order,requestId:String(msg.order.id)};
-    acceptedPlacesRef.current.add(job.place);refreshRef.current?.();endIncomingOffer(true);setSelectedJob(job);setToast('Chamada aceita. Rota mantida no mapa.');
+    acceptedPlacesRef.current.add(job.place);setRegisteredRequests(previous=>previous.some(o=>o.requestId===job.requestId)?previous:[...previous,{...job,status:'aceito',driverId:String(profile.id)}]);refreshRef.current?.();endIncomingOffer(true);setSelectedJob(job);setToast('Chamada aceita. Rota mantida no mapa.');
    }else if(msg.type==='call_error'){callDecisionRef.current=null;endIncomingOffer();setToast(msg.message||'Não foi possível aceitar o pedido.')}
   };
   socket.onclose=()=>{if(callSocketRef.current===socket)callSocketRef.current=null;if(!disposed){endIncomingOffer();setCallConnection('offline');retryTimer=setTimeout(connect,3000)}};
@@ -921,7 +921,7 @@ jobsLayer.clearLayers();
 // Hierarquia de capacidade: moto < carro < utilitário.
 const vehicleLevel={moto:1,carro:2,utilitario:3};
 const maxLevel=vehicleLevel[activeVehicle]||0;
-const visibleJobs=jobs.filter(job=>(vehicleLevel[job.vehicle]||99)<=maxLevel&&acceptedPlacesRef.current.has(job.place));
+const visibleJobs=jobs.filter(job=>(vehicleLevel[job.vehicle]||99)<=maxLevel&&String(job.driverId)===String(profile.id));
 const zoom=map.getZoom();
 const radius=zoom>=16?0:zoom>=14?105:zoom>=12?155:190;
 const groups=[];
