@@ -1,26 +1,24 @@
-# Zap Encomendas — Servidor Node.js + MySQL
+# Zap Encomendas — Node.js + MySQL
 
-Primeira etapa do projeto unificado. Um único arquivo `server.js` contém o servidor HTTP, página inicial, diagnóstico MySQL e migrações SQL. O `package.json` instala apenas o driver `mysql2`.
+## Iniciar
 
-## Executar
+Instale Node.js 20+, configure as variáveis MySQL na hospedagem conforme `.env.example` e execute:
 
-1. Disponibilize Node.js 20+ e MySQL na hospedagem.
-2. Configure as variáveis `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` e opcionalmente `PORT` (veja `.env.example`).
-3. Execute `npm install` e `npm start` (ou configure o arquivo inicial `server.js` no painel da hospedagem).
-4. Acesse `/` para visualizar **Servidor iniciado com sucesso!** e `/health` para verificar a conexão com MySQL.
+```bash
+npm install
+npm start
+```
 
-> O Node.js não lê automaticamente arquivos `.env` nesta versão. Configure as variáveis diretamente no painel da hospedagem ou use `node --env-file=.env server.js` no Node 20.6+.
+- `/` abre o **frontend V15** (arquivo `index.html`).
+- `/status` mostra a página de confirmação do servidor e o status do MySQL.
+- `/health` retorna JSON com a saúde do servidor e banco (200 conectado, 503 desconectado).
 
-## Banco de dados
+O arquivo `package.json` já define o script `start` e a única dependência do backend: `mysql2`. O frontend V15 usa recursos CDN, então a interface exige internet no navegador.
 
-O banco `DB_NAME` precisa existir previamente, com usuário autorizado a criar tabelas. Ao iniciar, o servidor verifica e cria, se necessário, as tabelas: `schema_migrations`, `carriers`, `clients`, `drivers`, `orders` e `api_events`. Não apaga dados existentes. O status da conexão aparece na página e em `/health`.
+## MySQL
 
-## Situação atual
+Configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` no ambiente da hospedagem. O banco deve existir previamente. O servidor tenta conectar e cria as tabelas `schema_migrations`, `carriers`, `clients`, `drivers`, `orders` e `api_events` quando o usuário MySQL tem permissão.
 
-- Publicado: servidor, página de status, diagnóstico e migração inicial MySQL.
-- Ainda pendente: configurar credenciais reais e confirmar conexão em hospedagem; integrar frontend V15 e rotas CRUD; autenticação e autorização antes de expor dados de clientes/pedidos.
-- **Não é uma aplicação pronta para produção.** Não há rotas públicas de leitura/escrita dos dados nesta etapa.
+**Importante:** a conexão com o banco não foi testada na hospedagem real. O frontend V15 ainda usa armazenamento local do navegador; os cadastros e pedidos **não estão integrados ao MySQL**. Não há API CRUD nem autenticação nesta etapa. O próximo passo é implementar isso com segurança.
 
-## Segurança
-
-Não envie senhas, tokens ou arquivos `.env` para o GitHub. Use variáveis de ambiente privadas no servidor.
+Não publique senhas nem arquivos `.env` no GitHub.
