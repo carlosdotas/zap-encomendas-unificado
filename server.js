@@ -4,6 +4,8 @@
 // Configure DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME na hospedagem.
 // O código nunca envia credenciais para o navegador.
 const http = require('node:http');
+const fs = require('node:fs');
+const pathModule = require('node:path');
 const mysql = require('mysql2/promise');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -77,6 +79,14 @@ function homeHtml() {
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   if (req.method === 'GET' && path === '/') {
+    fs.readFile(pathModule.join(__dirname, 'index.html'), (err, html) => {
+      if (err) { console.error('[HTML]', err.message); sendJson(res, 500, {error:'Frontend indisponível'}); return; }
+      res.writeHead(200, {'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+      res.end(html);
+    });
+    return;
+  }
+  if (req.method === 'GET' && path === '/status') {
     res.writeHead(200, {'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
     res.end(homeHtml());
     return;
