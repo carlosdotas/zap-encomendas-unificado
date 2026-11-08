@@ -194,7 +194,7 @@ function setSessionCookie(req,res,token,maxAge) {
   res.setHeader('Set-Cookie','zap_session='+token+'; Path=/; HttpOnly; SameSite=Lax; Max-Age='+maxAge+(secure?'; Secure':''));
 }
 
-function masterConfig(){const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');const password=process.env.MASTER_AUTH_PASSWORD||'';const secret=process.env.MASTER_AUTH_SECRET||'';return phone.length>=10&&password.length>=6&&Buffer.byteLength(secret)>=32?{phone,password,secret}:null;}
+function masterConfig(){const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');const password=process.env.MASTER_AUTH_PASSWORD||'';const secret=process.env.MASTER_AUTH_SECRET||'';return phone.length>=10&&password.length>=10&&Buffer.byteLength(secret)>=32?{phone,password,secret}:null;}
 function masterIdentity(role){return {id:'master',full_name:'Administrador mestre',phone:process.env.MASTER_AUTH_PHONE||'',role,vehicles:'moto,carro,utilitario',isMaster:true};}
 function masterSession(req){const config=masterConfig();if(!config)return null;const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('zap_master='));if(!cookie)return null;const parts=cookie.slice(11).split('.');if(parts.length!==2)return null;const expected=crypto.createHmac('sha256',config.secret).update(parts[0]).digest();let provided;try{provided=Buffer.from(parts[1],'base64url')}catch{return null}if(provided.length!==expected.length||!crypto.timingSafeEqual(provided,expected))return null;let data;try{data=JSON.parse(Buffer.from(parts[0],'base64url').toString())}catch{return null}if(!['motorista','transportadora'].includes(data.role)||!Number.isFinite(data.exp)||data.exp<Date.now())return null;return masterIdentity(data.role);}
 function setMasterCookie(req,res,role){const config=masterConfig();const payload=Buffer.from(JSON.stringify({role,exp:Date.now()+28800000,nonce:crypto.randomBytes(12).toString('hex')})).toString('base64url');const sig=crypto.createHmac('sha256',config.secret).update(payload).digest('base64url');const secure=req.socket.encrypted||req.headers['x-forwarded-proto']==='https';res.setHeader('Set-Cookie','zap_master='+payload+'.'+sig+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800'+(secure?'; Secure':''));}
@@ -226,7 +226,7 @@ async function authRoutes(req,res,path) {
     sendJson(res,user?200:401,user?{ok:true,user:publicUser(user)}:{ok:false,error:'Sessão não encontrada'});
     return true;
   }
-  if(!['/api/auth/register','/api/auth/login','/api/auth/logout'].includes(path) || req.method!=='POST') return false;
+  if(!['/api/auth/register','/api/auth/login','/api/auth/logout','/api/auth/master/switch-role'].includes(path) || req.method!=='POST') return false;
   if(req.headers.origin) {
     let originHost='';
     try{originHost=new URL(req.headers.origin).host;}catch{}
@@ -236,8 +236,14 @@ async function authRoutes(req,res,path) {
   if(rateLimit(req,path)) {sendJson(res,429,{error:'Muitas tentativas. Aguarde 15 minutos.'});return true;}
   let body;
   try {body=await readBody(req)} catch(err) {sendJson(res,400,{error:'Corpo da requisição inválido.'});return true;}
+  if(path==='/api/auth/master/switch-role') {
+    const master=masterSession(req);
+    if(!master){sendJson(res,403,{error:'Somente o administrador mestre pode trocar de perfil.'});return true;}
+    if(!['motorista','transportadora'].includes(body.role)){sendJson(res,400,{error:'Perfil inválido.'});return true;}
+    setMasterCookie(req,res,body.role);sendJson(res,200,{ok:true,user:publicUser(masterIdentity(body.role))});return true;
+  }
   if(path==='/api/auth/logout') {
-    if(masterSession(req)){clearMasterCookie(req,res);setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;}
+    if(masterSession(req)){clearMasterCookie(req,res);sendJson(res,200,{ok:true});return true;}
     if(!pool||!databaseStatus.ok)await ensureDatabase();
     if(!pool||!databaseStatus.ok){setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;}
     const match=String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
@@ -255,6 +261,7 @@ async function authRoutes(req,res,path) {
     sendJson(res,400,{error:'Informe telefone com DDD e senha de pelo menos 10 caracteres.'});return true;
   }
   if(path==='/api/auth/register') {
+    if(master&&secureTextMatch(phone,master.phone)){sendJson(res,409,{error:'Telefone reservado para a administração.'});return true;}
     const name=String(body.name||'').trim().replace(/\s+/g,' ');
     const role=body.role==='transportadora'?'transportadora':'motorista';
     const vehicles=Array.isArray(body.vehicles)?body.vehicles.filter(v=>['moto','carro','utilitario'].includes(v)).slice(0,3):[];
@@ -292,6 +299,7 @@ async function quickClientRoutes(req,res,path){
  if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true;}
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para acessar clientes'});return true;}
+ if(user.isMaster){sendJson(res,403,{error:'Acesso mestre em modo de visualização. Use uma conta real para gerenciar clientes.'});return true;}
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Acesso restrito a transportadoras'});return true;}
  if(req.method==='GET'){
   const [rows]=await pool.execute('SELECT id,name,contact_name,document_number,phone,address,latitude,longitude FROM zap_quick_clients WHERE owner_user_id=? ORDER BY id DESC LIMIT 500',[user.id]);
@@ -321,6 +329,7 @@ async function orderRoutes(req,res,path) {
  if(!databaseStatus.ok || migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível',diagnostic:databaseDiagnostics()});return true;}
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para gerenciar pedidos'});return true;}
+ if(user.isMaster){sendJson(res,403,{error:'Acesso mestre em modo de visualização. Use uma conta real para gerenciar pedidos.'});return true;}
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras podem cadastrar pedidos'});return true;}
  if(req.method==='GET' && path==='/api/orders') {
    const [rows]=await pool.execute('SELECT * FROM zap_order_entries WHERE owner_user_id=? ORDER BY id DESC LIMIT 500',[user.id]);
