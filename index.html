@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta name="zap-versao" content="base-consolidada-v2"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>V15 - Zap Encomendas V14 | Zap Encomendas | V7</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{font-family:Arial,Helvetica,sans-serif;color:#163c32}*{box-sizing:border-box}html,body,#root{margin:0;min-height:100%;height:100%;}button,input{font:inherit}button{cursor:pointer} .screen{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(145deg,#e7f8ed,#f5faf7)}.auth-card,.start-card{background:white;border-radius:24px;padding:30px 25px;width:min(100%,410px);box-shadow:0 15px 50px #0b59301b}.logo{width:62px;height:62px;border-radius:20px;background:#25d366;display:grid;place-items:center;color:white;font-size:31px;font-weight:800;margin:0 auto 18px}.auth-card h1,.start-card h1{font-size:25px;text-align:center;margin:0 0 9px}.subtitle{text-align:center;color:#6a7d74;font-size:14px;line-height:1.5;margin:0 0 25px}.field{display:block;margin:14px 0;font-size:13px;font-weight:700}.field input{display:block;margin-top:7px;width:100%;height:47px;border:1px solid #d3e0d8;border-radius:11px;padding:0 13px;outline-color:#25d366;background:white}.primary{border:0;background:#13834e;color:white;font-weight:700;width:100%;border-radius:12px;padding:15px;margin-top:12px}.link-btn{border:0;background:none;color:#13834e;font-weight:700;padding:8px}.switch{text-align:center;font-size:14px;margin-top:15px}.error{color:#b42318;font-size:13px;line-height:1.5}.notice{font-size:12px;color:#7b887e;text-align:center;line-height:1.5;margin-top:15px}.start-card{text-align:center}.start-icon{font-size:48px;margin-bottom:14px}.status{display:inline-flex;gap:8px;align-items:center;background:#fff5e6;color:#966200;padding:9px 14px;border-radius:30px;font-size:13px;font-weight:bold;margin:8px 0 25px}.status:before{content:'';width:9px;height:9px;background:#e5a000;border-radius:50%}.slider-wrap{height:70px;border-radius:40px;background:#fff3e8;position:relative;overflow:hidden;border:1px solid #f4d2b5;touch-action:pan-y}.slider-fill{position:absolute;inset:0 auto 0 0;background:#ffd5ab;pointer-events:none}.slider-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-left:50px;font-size:14px;font-weight:700;color:#98551c;pointer-events:none}.slider-wrap input{position:absolute;inset:0;width:100%;height:100%;appearance:none;-webkit-appearance:none;background:transparent;margin:0;cursor:grab}.slider-wrap input::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:62px;height:62px;border-radius:50%;background:linear-gradient(145deg,#ffb04f,#f58220 55%,#d9650c);box-shadow:0 3px 10px #b85c2480;border:4px solid white}.slider-wrap input::-moz-range-thumb{width:54px;height:54px;border-radius:50%;background:#f58220;border:4px solid white}.small-muted{font-size:13px;color:#819187;margin:18px 0 0}.map-page{height:100dvh;position:relative;overflow:hidden;background:#e7ebe7}.map-canvas{position:absolute;inset:0;z-index:0}.control{position:absolute;z-index:500;width:50px;height:50px;border:1px solid #e0e7e2;background:white;border-radius:15px;display:grid;place-items:center;box-shadow:0 3px 14px #0002;color:#26463c}.control svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.top-left{top:max(16px,env(safe-area-inset-top));left:16px}.top-right{top:max(16px,env(safe-area-inset-top));right:16px;border-radius:50%}.bottom-right{right:16px;bottom:calc(22px + env(safe-area-inset-bottom))}.bottom-right.second{bottom:calc(84px + env(safe-area-inset-bottom))}.danger{color:#d43b3b}.overlay{position:absolute;inset:0;z-index:1000;background:#0007;display:flex;align-items:center;justify-content:center;padding:20px}.dialog{background:white;border-radius:19px;padding:25px;width:min(100%,360px);box-shadow:0 10px 30px #0003}.dialog h2{margin:0 0 12px;font-size:20px}.dialog p{line-height:1.5;color:#62756b}.actions{display:flex;gap:10px;margin-top:22px}.actions button{flex:1;border:0;padding:13px 8px;border-radius:10px;font-weight:bold}.actions .confirm{background:#dc3c3c;color:white}.actions .cancel{background:#eef2ef;color:#344b40}.toast{position:absolute;z-index:700;bottom:145px;left:50%;transform:translateX(-50%);background:#1b3e30;color:white;padding:12px 16px;border-radius:12px;text-align:center;font-size:13px;max-width:85%;white-space:normal}.menu-item{display:block;width:100%;padding:13px;text-align:left;background:white;border:0;border-bottom:1px solid #e5eae6;color:#26483a}.leaflet-control-attribution{font-size:10px!important}
+
+/* Identidade visual inspirada na marca: azul-marinho, laranja e off-white */
+:root{color:#193b59}
+.screen{background:linear-gradient(145deg,#f7f4ef 0%,#e7edf3 100%)}
+.auth-card,.start-card{border-radius:10px;box-shadow:0 15px 45px #183b591c;border:1px solid #dce3e9}
+.logo{display:block;width:105px;height:105px;object-fit:contain;border-radius:0;background:transparent;margin:0 auto 17px}
+.auth-card h1,.start-card h1{color:#183b59}
+.subtitle,.small-muted{color:#657587}
+.field{color:#193b59}
+.field input{border-radius:6px;border-color:#c8d3dc;outline-color:#f58220}
+.field input:focus{border-color:#f58220}
+.primary{background:#f58220;color:#fff;border-radius:6px}
+.primary:hover{background:#e87512}
+.link-btn{color:#193b59}
+.status{background:#fff1e4;color:#a65b12;border-radius:6px}
+.status:before{background:#f58220}
+.slider-wrap{border-radius:8px;background:#e8eef3;border-color:#cad7e2}
+.slider-fill{background:#f8c69e}
+.slider-label{color:#193b59}
+.slider-wrap input::-webkit-slider-thumb{border-radius:7px;background:#f58220;box-shadow:0 2px 10px #e8751255}
+.slider-wrap input::-moz-range-thumb{border-radius:7px;background:#f58220}
+.control{border-radius:8px;color:#193b59;border-color:#d5dce3}
+.control.top-right{border-radius:8px}
+.control.danger{color:#e25b32}
+.dialog{border-radius:9px}
+.actions button{border-radius:6px}
+.actions .confirm{background:#e25b32}
+.actions .cancel{background:#e8edf2;color:#193b59}
+.toast{background:#193b59;border-radius:7px}
+.menu-item{color:#193b59}
+
+/* Campos padronizados */
+.auth-card{padding:32px 28px;max-height:calc(100dvh - 24px);overflow-y:auto}
+.auth-card form{display:flex;flex-direction:column;gap:17px}
+.auth-card .field{display:flex;flex-direction:column;gap:7px;margin:0;font-size:13px;font-weight:700;letter-spacing:.1px}
+.auth-card .field input{margin:0;height:52px;padding:0 15px;border:1px solid #bccbd8;border-radius:5px;background:#fcfdff;color:#193b59;font-size:16px;transition:border-color .15s,box-shadow .15s}
+.auth-card .field input::placeholder{color:#8898a8;font-weight:400}
+.auth-card .field input:focus{outline:none;border-color:#f58220;box-shadow:0 0 0 3px #f5822026;background:#fff}
+.auth-card .primary{height:52px;margin-top:3px;font-size:16px}
+.auth-card .subtitle{margin-bottom:24px}
+.auth-card .switch{margin-top:20px}
+@media(max-width:400px){.screen{padding:14px}.auth-card,.start-card{padding:25px 20px}}
+
+/* Navegação lateral e perfil */
+.drawer-backdrop{position:absolute;inset:0;z-index:1100;background:#102b42a8}
+.drawer{position:absolute;top:0;bottom:0;left:0;width:min(330px,88vw);background:#fff;box-shadow:8px 0 35px #102b4230;display:flex;flex-direction:column;overflow-y:auto}
+.drawer-head{background:#193b59;color:white;padding:calc(28px + env(safe-area-inset-top)) 22px 22px;position:relative}
+.drawer-close{position:absolute;right:14px;top:18px;border:0;background:#ffffff20;color:white;font-size:26px;width:36px;height:36px;border-radius:5px}
+.drawer-person{display:flex;align-items:center;gap:12px;margin-top:10px}
+.avatar{width:60px;height:60px;object-fit:cover;border-radius:50%;background:#e7edf2;border:3px solid #fff;display:grid;place-items:center;color:#193b59;font-weight:700;font-size:22px;flex-shrink:0}
+.drawer-item{width:100%;display:flex;align-items:center;gap:14px;text-align:left;padding:16px 23px;border:0;background:#fff;color:#193b59;font-weight:600;font-size:15px}
+.drawer-item:hover,.drawer-item:focus{background:#f1f5f8}.drawer-item .glyph{width:25px;text-align:center;font-size:20px;color:#f58220}
+.drawer-label{padding:21px 23px 8px;color:#8291a0;font-size:11px;letter-spacing:1.2px;font-weight:800}
+.drawer-footer{margin-top:auto;border-top:1px solid #e5eaf0;padding:8px 0 18px}
+.profile-page{min-height:100dvh;background:#f2f5f8;color:#193b59;padding-bottom:40px}
+.profile-bar{height:68px;background:#193b59;color:#fff;display:flex;align-items:center;gap:16px;padding:0 18px}
+.profile-bar button{border:0;background:none;color:inherit;font-size:26px;padding:6px}
+.profile-content{max-width:560px;margin:0 auto;padding:22px 16px}
+.profile-card{background:#fff;border:1px solid #dce3e9;border-radius:8px;padding:22px;margin-bottom:16px;box-shadow:0 5px 20px #193b5909}
+.profile-avatar{width:110px;height:110px;border-radius:50%;object-fit:cover;background:#e8edf3;display:grid;place-items:center;margin:0 auto 14px;border:4px solid #f3f5f8;color:#193b59;font-size:38px;font-weight:700}
+.upload-label{display:inline-block;border:1px solid #f58220;color:#b85b0d;background:#fff8f1;padding:11px 18px;border-radius:5px;cursor:pointer;font-size:14px;font-weight:700}
+.profile-card h2{font-size:17px;margin:0 0 17px}
+.profile-field{display:block;font-size:13px;font-weight:700;margin-bottom:16px}
+.profile-field input{display:block;width:100%;height:48px;border:1px solid #c7d2dc;border-radius:5px;margin-top:7px;padding:0 13px;font-size:16px;color:#193b59;background:white}
+.profile-field input:focus{outline:2px solid #f5822060;border-color:#f58220}
+.profile-note{color:#687a8b;font-size:12px;line-height:1.5}
+.profile-message{padding:12px;background:#eaf5ef;color:#23633b;border-radius:5px;font-size:13px;margin-top:12px}
+.drawer-close{z-index:20;display:flex;align-items:center;justify-content:center;touch-action:manipulation;cursor:pointer}.drawer{touch-action:pan-y;animation:drawerSlide .22s ease-out}.drawer-backdrop{animation:drawerFade .2s ease-out}@keyframes drawerSlide{from{transform:translateX(-100%)}to{transform:translateX(0)}}@keyframes drawerFade{from{opacity:0}to{opacity:1}}
+
+/* Controle de ativação com aparência de botão físico, arredondado */
+.slider-wrap{height:76px;border-radius:999px;background:linear-gradient(180deg,#e7edf4 0%,#f7f9fc 100%);border:1px solid #c7d3df;box-shadow:inset 0 3px 7px #183b5920,0 3px 12px #193b5910;overflow:hidden;touch-action:pan-y}
+.slider-fill{background:linear-gradient(90deg,#ffd6b0,#f8a354);border-radius:999px;transition:width .08s linear}
+.slider-label{color:#193b59;font-weight:800;letter-spacing:.1px;text-shadow:0 1px 0 #fff9}
+.slider-wrap input{height:100%;outline-offset:4px;touch-action:pan-y}
+.slider-wrap input::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:66px;height:66px;border-radius:50%;border:4px solid #fff;background:radial-gradient(circle at 32% 24%,#ffbd70 0%,#fb922d 38%,#e66b0b 100%);box-shadow:inset 0 2px 3px #fff8,inset 0 -4px 7px #a94b1466,0 4px 10px #8c4c2a66,0 0 0 1px #c9651c;cursor:grab}
+.slider-wrap input:active::-webkit-slider-thumb{cursor:grabbing;box-shadow:inset 0 3px 7px #8b430a66,0 2px 5px #8c4c2a55,0 0 0 1px #c9651c}
+.slider-wrap input::-moz-range-thumb{width:58px;height:58px;border-radius:50%;border:4px solid #fff;background:radial-gradient(circle at 32% 24%,#ffbd70,#fb922d 40%,#e66b0b);box-shadow:inset 0 2px 3px #fff8,inset 0 -4px 7px #a94b1466,0 4px 10px #8c4c2a66;cursor:grab}
+
+.vehicle-group{margin:19px 0 10px;text-align:left}.vehicle-title{font-size:13px;font-weight:700;color:#193b59;margin-bottom:9px}.vehicle-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.vehicle-option{border:1px solid #cdd7e0;border-radius:7px;background:#fff;padding:12px 5px;display:flex;flex-direction:column;align-items:center;gap:5px;font-weight:700;color:#193b59;font-size:12px;cursor:pointer}.vehicle-option.selected{background:#fff3e8;border:2px solid #f58220;padding:11px 4px;color:#ad4a00}.vehicle-option .vehicle-emoji{font-size:25px}.vehicle-choice{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:9px 0;border:1px solid #d6dfe7;border-radius:7px;text-align:left;cursor:pointer;background:#fff;color:#193b59}.vehicle-choice.selected{border:2px solid #f58220;background:#fff5ed;padding:11px 13px}.vehicle-choice input{accent-color:#f58220;width:18px;height:18px}.vehicle-choice .vehicle-emoji{font-size:26px}.vehicle-choice strong{font-size:14px}.vehicle-choice small{font-size:12px;color:#657587}.active-vehicle{font-size:13px;color:#193b59;margin:12px 0 0;font-weight:700}.vehicle-hint{font-size:12px;color:#657587;margin:8px 0 0;line-height:1.5}
+
+/* Botão de sessão com captura de ponteiro: sem dependência do range nativo */
+.slider-wrap{height:70px;border-radius:40px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;overflow:hidden;position:relative}
+.slider-wrap:active{cursor:grabbing}.slider-wrap.slider-disabled{opacity:.45;cursor:not-allowed}
+.slider-fill{transition:width .08s linear;background:linear-gradient(90deg,#ffe6c8,#ffc68c)}
+.slider-label{padding:0 30px 0 66px;font-size:14px;pointer-events:none}
+.slider-knob{position:absolute;top:4px;width:62px;height:62px;border-radius:50%;display:grid;place-items:center;pointer-events:none;background:linear-gradient(145deg,#ffb955,#f58220 60%,#c9600a);border:3px solid #fff;box-shadow:0 4px 10px #8e4a2580,inset 0 2px 3px #ffffff70;transition:left .07s linear}
+.slider-knob svg{width:25px;height:25px;fill:none;stroke:white;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.start-icon svg{width:50px;height:50px;stroke:#f58220;stroke-width:1.8;fill:none;stroke-linejoin:round;stroke-linecap:round}
+.vehicle-emoji svg{width:28px;height:28px;stroke:#193b59;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.glyph svg,.active-vehicle svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;vertical-align:middle}
+.drawer-close svg{width:22px;height:22px;stroke:currentColor;stroke-width:2;fill:none}
+.top-notices{position:absolute;z-index:600;top:calc(12px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:calc(100vw - 32px);pointer-events:none}
+.notice-pill{display:flex;align-items:center;justify-content:center;gap:9px;max-width:100%;padding:11px 17px;border-radius:999px;box-shadow:0 5px 18px #0002;font-size:13px;font-weight:700;white-space:nowrap;animation:notice-in .24s ease-out}
+.notice-pill svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none}
+.notice-vehicle{background:#193b59;color:#fff}.notice-online{background:#e8f7ef;color:#176b40;border:1px solid #a5d7bc}.notice-offline{background:#fff1ed;color:#b43d26;border:1px solid #f3c2b5}
+@keyframes notice-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Tela de ativação compacta: sem rolagem em celulares usuais */
+.start-screen{height:100dvh;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:calc(10px + env(safe-area-inset-top)) 14px calc(10px + env(safe-area-inset-bottom));box-sizing:border-box}
+.start-screen .start-card{width:min(100%,430px);max-height:100%;min-height:0;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(6px,1.3dvh,13px);padding:clamp(12px,2.8dvh,24px) 18px;border-radius:12px;overflow:hidden}
+.start-screen .logo{width:clamp(48px,9dvh,72px);height:clamp(48px,9dvh,72px);object-fit:contain;margin:0 auto;border-radius:8px;flex-shrink:0}
+.start-screen h1{font-size:clamp(18px,3.5dvh,23px);line-height:1.15;margin:0}
+.start-screen .subtitle{font-size:clamp(11px,1.9dvh,13px);line-height:1.3;margin:0;color:#627487}
+.start-screen .vehicle-group{width:100%;margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;align-items:stretch}
+.start-screen .vehicle-title{grid-column:1/-1;font-size:12px;font-weight:700;text-align:left;margin:0 0 2px}
+.start-screen .vehicle-choice{margin:0!important;min-width:0;min-height:clamp(58px,10dvh,78px);padding:7px 3px!important;border-radius:8px;display:flex!important;flex-direction:column;justify-content:center;align-items:center;gap:4px;text-align:center;line-height:1.1}
+.start-screen .vehicle-choice input{position:absolute;opacity:0;pointer-events:none}
+.start-screen .vehicle-emoji{margin:0!important;font-size:20px;line-height:1}
+.start-screen .vehicle-emoji svg{width:23px;height:23px}
+.start-screen .vehicle-choice strong{font-size:12px}
+.start-screen .slider-wrap{width:100%;height:clamp(54px,9dvh,66px);flex-shrink:0;margin:clamp(4px,1dvh,10px) 0 0;border-radius:40px;touch-action:none}
+.start-screen .slider-knob{width:clamp(46px,8dvh,58px);height:clamp(46px,8dvh,58px)}
+.start-screen .slider-label{font-size:12px}
+.start-screen .link-btn{margin:0!important;font-size:12px;padding:4px 10px;flex-shrink:0}
+@media(max-height:590px){.start-screen .start-card{gap:5px;padding:8px 15px}.start-screen .logo{width:42px;height:42px}.start-screen .vehicle-choice{min-height:51px}.start-screen .vehicle-emoji svg{width:19px;height:19px}.start-screen .slider-wrap{height:54px}.start-screen .subtitle{font-size:11px}}
+
+/* Marcadores legíveis: tipografia ampliada, hierarquia e contraste */
+.job-div-icon{background:transparent;border:0;overflow:visible!important}
+.job-pin{width:204px;height:145px;position:relative;filter:drop-shadow(0 4px 6px #13263b30)}
+.job-pin-card{position:absolute;top:0;left:0;box-sizing:border-box;width:204px;min-height:109px;background:#fff;border:1px solid #cbd5e1;border-top:5px solid var(--job-color);border-radius:12px;padding:9px 11px 10px;box-shadow:0 7px 20px #102f4a40;text-align:left}
+.job-coleta{--job-color:#08784a}.job-entrega{--job-color:#bb5c08}.job-troca{--job-color:#2459b9}
+.job-place{font-weight:850;font-size:15px;line-height:19px;letter-spacing:-.2px;color:#102c47;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.job-carrier{display:flex;align-items:center;gap:8px;margin-top:7px;font-size:12px;line-height:23px;font-weight:600;color:#344b60;white-space:nowrap;overflow:hidden}
+.job-carrier>span:last-child{overflow:hidden;text-overflow:ellipsis}
+.job-avatar{display:grid;place-items:center;flex:none;width:24px;height:24px;border-radius:50%;background:#e7edf5;border:1px solid #cbd7e4;color:#193b59;font-size:10px;font-weight:800}
+.job-icons{display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:7px}
+.job-icons svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.job-vehicle{display:flex;align-items:center;color:#193b59}
+.job-operation{display:flex;align-items:center;gap:5px;padding:3px 7px;border-radius:5px;background:color-mix(in srgb,var(--job-color) 11%,white);color:var(--job-color);font-size:12px;line-height:18px;font-weight:800}
+.job-pointer{position:absolute;top:108px;left:calc(50% - 17px);width:34px;height:28px;color:var(--job-color);animation:job-bounce 1.35s ease-in-out infinite;z-index:2}
+.job-pointer svg{width:34px;height:28px;fill:#fff;stroke:currentColor;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 2px #0004)}
+.job-shadow{position:absolute;bottom:0;left:calc(50% - 17px);width:34px;height:9px;border-radius:50%;background:#16263865;filter:blur(4px);animation:job-shadow 1.35s ease-in-out infinite}
+@keyframes job-bounce{0%,100%{transform:translateY(-5px)}50%{transform:translateY(1px)}}
+@keyframes job-shadow{0%,100%{transform:scale(.75);opacity:.4}50%{transform:scale(1);opacity:.8}}
+@media(prefers-reduced-motion:reduce){.job-pointer,.job-shadow{animation:none}}
+
+.zap-cluster-wrap{background:transparent;border:0}
+.zap-cluster{height:66px;width:66px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,#f69b38,#e66f0c);border:4px solid #fff;box-shadow:0 3px 0 #b8540d,0 8px 18px #152e4b50;color:#fff;font-family:Arial,sans-serif;line-height:1.05;cursor:pointer}
+.zap-cluster span{font-size:23px;font-weight:900}.zap-cluster small{font-size:9px;font-weight:700}
+.slider-track,.slider-knob{touch-action:none;user-select:none;-webkit-user-select:none}
+/* Marcador horizontal: ícone circular, informações à direita */
+.job-pin{width:260px;height:125px;filter:none}
+.job-marker-row{position:absolute;inset:0;display:flex;align-items:flex-start;gap:5px}
+.job-symbol-wrap{position:relative;flex:0 0 64px;height:125px}
+.job-symbol{position:absolute;top:18px;left:2px;width:62px;height:62px;display:grid;place-items:center;border-radius:50%;background:var(--job-color);border:4px solid #fff;box-shadow:0 4px 0 #1a2a3950,0 7px 14px #102f4a60;color:white;z-index:3}
+.job-symbol svg{width:33px;height:33px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.job-arrow{position:absolute;top:77px;left:18px;width:32px;height:29px;color:var(--job-color);z-index:2;animation:job-bounce 1.35s ease-in-out infinite}
+.job-arrow svg{width:32px;height:29px;fill:#fff;stroke:currentColor;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.job-shadow{bottom:3px;left:19px;width:30px}
+.job-details{box-sizing:border-box;flex:1;min-width:0;margin-top:0;background:white;border:1px solid #cdd7e2;border-left:4px solid var(--job-color);border-radius:9px;padding:8px 9px;box-shadow:0 5px 14px #102f4a40}
+.job-place{font-size:14px;line-height:18px}
+.job-carrier{margin-top:4px;font-size:11px;line-height:19px;gap:5px}
+.job-avatar{width:19px;height:19px;font-size:8px}
+.job-meta{display:flex;flex-wrap:wrap;gap:3px 9px;margin-top:5px;color:#263d53;font-size:10px;font-weight:700}
+.job-operation{display:inline-flex;margin-top:5px;padding:2px 6px;font-size:10px;line-height:15px}
+.job-operation svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+@media(prefers-reduced-motion:reduce){.job-arrow{animation:none}}
+.zap-map-warning{position:absolute;bottom:80px;left:12px;right:12px;z-index:1000;background:#fff8e7;color:#583b12;border:1px solid #f4c06e;border-radius:9px;padding:12px;font-size:12px;text-align:center;box-shadow:0 4px 14px #0002}
+/* Layout compacto e legível para mapa mobile */
+.job-pin{width:225px;height:104px}
+.job-marker-row{gap:4px}
+.job-symbol-wrap{flex:0 0 51px;height:104px}
+.job-symbol{top:12px;left:1px;width:50px;height:50px;border-width:3px;box-shadow:0 3px 0 #1a2a3945,0 5px 11px #102f4a55}
+.job-symbol svg{width:28px;height:28px;stroke-width:2.15}
+.job-arrow{top:58px;left:13px;width:26px;height:25px}
+.job-arrow svg{width:26px;height:25px;stroke-width:3.5}
+.job-shadow{bottom:2px;left:12px;width:27px;height:7px}
+.job-details{padding:6px 8px 6px;border-radius:8px;border-left-width:3px;box-shadow:0 4px 12px #102f4a33}
+.job-place{font-size:12px;line-height:15px;font-weight:800}
+.job-carrier{margin-top:3px;font-size:10px;line-height:16px}
+.job-avatar{width:16px;height:16px;font-size:7px}
+.job-meta{gap:2px 7px;margin-top:4px;font-size:9px;line-height:12px}
+.job-operation{margin-top:3px;padding:1px 5px;font-size:9px;line-height:13px;border-radius:4px;background:color-mix(in srgb,var(--job-color) 10%,white)}
+.job-operation svg{width:12px;height:12px}
+
+/* Linha uniforme de etiquetas: serviço, distância e veículo */
+.job-pin{width:255px;height:108px}
+.job-details{overflow:visible}
+.job-badges{display:flex;align-items:center;flex-wrap:nowrap;gap:3px;margin-top:4px;white-space:nowrap}
+.job-badges .job-operation,.job-badges .job-badge{display:inline-flex;align-items:center;justify-content:center;gap:2px;min-width:0;margin:0;padding:3px 4px;border:1px solid color-mix(in srgb,var(--job-color) 27%,white);border-radius:5px;background:color-mix(in srgb,var(--job-color) 10%,white);color:var(--job-color);font-size:9px;line-height:12px;font-weight:800}
+.job-badges .job-badge svg,.job-badges .job-operation svg{width:12px;height:12px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.job-badges .job-distance{color:#204f80;border-color:#cbdff1;background:#edf5fc}
+.job-badges .job-type{color:#35475b;border-color:#d6e0e9;background:#f1f5f8}
+.job-closing{color:#566a7e}
+
+/* Acessibilidade: tipografia maior, contraste alto e etiquetas que não cortam */
+.job-pin{width:308px;height:126px}
+.job-marker-row{gap:7px}
+.job-symbol-wrap{flex:0 0 55px;height:126px}
+.job-symbol{top:18px;left:1px;width:54px;height:54px;border:3px solid white}
+.job-symbol svg{width:30px;height:30px}
+.job-arrow{top:70px;left:14px}
+.job-shadow{bottom:3px;left:14px}
+.job-details{flex:1;min-width:0;padding:9px 10px;background:#fff;border:1px solid #b7c7d7;border-left:4px solid var(--job-color);border-radius:10px;box-shadow:0 5px 16px #13283e55}
+.job-place{font-size:15px;line-height:19px;font-weight:850;letter-spacing:0;color:#112c43;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.job-carrier{margin-top:4px;font-size:12px;line-height:20px;font-weight:650;color:#34495e;gap:6px}
+.job-avatar{width:20px;height:20px;font-size:9px}
+.job-meta{margin-top:4px;font-size:11px;line-height:15px;font-weight:700}
+.job-closing{color:#3d5368}
+.job-badges{display:flex;flex-wrap:nowrap;gap:4px;margin-top:7px;white-space:nowrap}
+.job-badges .job-operation,.job-badges .job-badge{flex:0 0 auto;padding:4px 6px;border-radius:6px;font-size:11px;line-height:15px;gap:4px;font-weight:800;border-width:1px}
+.job-badges .job-badge svg,.job-badges .job-operation svg{width:14px;height:14px;stroke-width:2.3}
+.job-badges .job-operation{background:var(--job-color);border-color:var(--job-color);color:#fff}
+.job-badges .job-distance{background:#e7f1ff;color:#174b85;border-color:#aac7e8}
+.job-badges .job-type{background:#e9eef3;color:#243a50;border-color:#b8c9d8}
+
+/* Cartões premium: hierarquia clara e leitura confortável */
+.job-pin{width:322px!important;height:134px!important;font-family:Arial,Helvetica,sans-serif}
+.job-marker-row{gap:7px!important}
+.job-symbol-wrap{flex:0 0 58px!important;height:134px!important}
+.job-symbol{width:52px!important;height:52px!important;top:22px!important;left:1px!important;border:3px solid white!important;box-shadow:0 3px 0 #132f4466,0 8px 17px #102f4a55!important}
+.job-symbol svg{width:29px!important;height:29px!important;stroke-width:2.25!important}
+.job-arrow{top:73px!important;left:11px!important}
+.job-shadow{bottom:2px!important;left:12px!important}
+.job-details{margin-top:2px!important;flex:1!important;min-width:0!important;padding:9px 11px 10px!important;border-radius:12px!important;border:1px solid #b8c9d8!important;border-left:4px solid var(--job-color)!important;background:#fff!important;box-shadow:0 7px 19px #10283f55!important;overflow:visible!important}
+.job-place{font-size:15px!important;line-height:19px!important;font-weight:900!important;color:#132f4a!important;letter-spacing:-.2px!important;white-space:nowrap!important;text-overflow:ellipsis!important;overflow:hidden!important}
+.job-carrier{display:flex!important;align-items:center!important;margin-top:5px!important;gap:6px!important;font-size:11.5px!important;font-weight:700!important;line-height:20px!important;color:#40576c!important}
+.job-avatar{width:20px!important;height:20px!important;font-size:9px!important;background:#e5edf6!important;color:#1a3d5c!important}
+.job-meta{margin-top:4px!important;font-size:10.5px!important;line-height:14px!important;color:#52667a!important;font-weight:700!important}
+.job-badges{display:flex!important;align-items:center!important;flex-wrap:nowrap!important;gap:4px!important;margin-top:7px!important;white-space:nowrap!important}
+.job-badges .job-operation,.job-badges .job-badge{box-sizing:border-box!important;display:inline-flex!important;align-items:center!important;gap:3px!important;margin:0!important;padding:4px 6px!important;border-radius:6px!important;font-size:10.5px!important;font-weight:800!important;line-height:15px!important;letter-spacing:0!important;white-space:nowrap!important;flex:0 0 auto!important;min-width:0!important}
+.job-badges svg{width:13px!important;height:13px!important;flex:none!important;fill:none!important;stroke:currentColor!important;stroke-width:2.2!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+.job-badges .job-operation{background:var(--job-color)!important;color:white!important;border:1px solid var(--job-color)!important}
+.job-badges .job-distance{background:#e8f2ff!important;color:#184c85!important;border:1px solid #c4daf3!important}
+.job-badges .job-type{background:#eef1f5!important;color:#263e55!important;border:1px solid #d4dde5!important}
+
+/* Horário fixado no canto superior direito do cartão */
+.job-topline{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:6px!important;min-width:0!important}
+.job-topline .job-place{flex:1 1 auto!important;min-width:0!important;font-size:14px!important;line-height:21px!important}
+.job-topline .job-closing{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;margin:0!important;padding:3px 5px!important;border-radius:6px!important;background:#edf3f9!important;color:#183e60!important;border:1px solid #d8e4ee!important;font-size:10px!important;line-height:15px!important;font-weight:800!important;white-space:nowrap!important}
+
+/* Correção definitiva do vazamento das etiquetas: grid com 3 colunas internas */
+.job-pin{width:350px!important;height:154px!important}
+.job-marker-row{width:350px!important;height:154px!important;align-items:flex-start!important}
+.job-symbol-wrap{flex:0 0 57px!important;width:57px!important}
+.job-details{box-sizing:border-box!important;width:286px!important;max-width:286px!important;flex:0 0 286px!important;min-width:0!important;overflow:hidden!important;padding:9px 9px 10px!important}
+.job-badges{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.16fr)!important;gap:4px!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important;margin-top:8px!important;white-space:nowrap!important}
+.job-badges .job-operation,.job-badges .job-badge{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:3px!important;overflow:hidden!important;padding:5px 3px!important;font-size:10.5px!important;line-height:16px!important;white-space:nowrap!important}
+.job-badges svg{width:12px!important;height:12px!important;flex-shrink:0!important}
+.job-topline{min-width:0!important;max-width:100%!important}
+.job-place{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.job-carrier{max-width:100%!important;min-width:0!important}
+.job-div-icon{overflow:visible!important}
+
+/* Precisão do ponto: a âncora do Leaflet coincide com a ponta da seta (x=29, y=154).
+   A label permanece à direita e não interfere no posicionamento geográfico. */
+.job-pin,.job-marker-row{height:154px!important}
+.job-symbol-wrap{position:relative!important;height:154px!important}
+.job-arrow{position:absolute!important;left:13px!important;top:auto!important;bottom:0!important;width:32px!important;height:32px!important;animation:none!important;transform:none!important;z-index:4!important}
+.job-arrow svg{display:block!important;width:32px!important;height:32px!important;fill:white!important;stroke:var(--job-color)!important;stroke-width:4!important}
+.job-shadow{position:absolute!important;left:17px!important;bottom:0!important;width:24px!important;height:5px!important;animation:none!important;opacity:.4!important;pointer-events:none!important}
+.job-symbol{animation:job-pin-float 1.5s ease-in-out infinite!important}
+@keyframes job-pin-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@media(prefers-reduced-motion:reduce){.job-symbol{animation:none!important}}
+
+/* Ícone e seta conectados; ponta fixa sobre a coordenada geográfica. */
+.job-symbol{top:77px!important;left:3px!important;width:52px!important;height:52px!important;animation:none!important;z-index:5!important;box-shadow:0 3px 0 #102f4a44,0 7px 12px #102f4a50!important}
+.job-arrow{top:121px!important;bottom:auto!important;left:13px!important;width:32px!important;height:33px!important;animation:none!important;transform:none!important;z-index:4!important}
+.job-arrow svg{width:32px!important;height:33px!important;display:block!important;filter:drop-shadow(0 2px 2px #0c203c40)}
+.job-shadow{position:absolute!important;top:150px!important;bottom:auto!important;left:16px!important;width:27px!important;height:7px!important;background:#102c4a80!important;filter:blur(3px)!important;opacity:.75!important;border-radius:50%!important;animation:none!important;z-index:1!important}
+.demo-access{display:block;width:100%;margin-top:10px;border:1px solid #193B59;border-radius:10px;padding:12px;background:#eef4f9;color:#193B59;font-weight:800;cursor:pointer}.demo-access:hover{background:#dae8f5}
+/* Ícone de veículo refinado: menor, centrado sobre a seta e com âncora intacta. */
+.job-symbol{top:89px!important;left:9px!important;width:40px!important;height:40px!important;border:3px solid #fff!important;border-radius:50%!important;box-shadow:0 3px 7px #102f4a55!important;display:grid!important;place-items:center!important}
+.job-symbol svg{width:23px!important;height:23px!important;stroke-width:2.1!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+.job-arrow{top:125px!important;left:13px!important;width:32px!important;height:29px!important}
+.job-arrow svg{width:32px!important;height:29px!important}
+.job-shadow{top:150px!important;left:16px!important;width:26px!important;height:6px!important;filter:blur(3px)!important}
+
+/* Etiquetas: Serviço | Veículo | Distância, cores de veículo independentes do serviço */
+.job-pin.job-vehicle-moto{--vehicle-bg:#DDF7ED;--vehicle-fg:#08633E;--vehicle-border:#A9E8CE}
+.job-pin.job-vehicle-carro{--vehicle-bg:#E1EDFF;--vehicle-fg:#174C9B;--vehicle-border:#B5D0FC}
+.job-pin.job-vehicle-utilitario{--vehicle-bg:#F1E5FF;--vehicle-fg:#6833A3;--vehicle-border:#DAC0F5}
+.job-pin .job-badges{display:flex!important;flex-wrap:nowrap!important;gap:4px!important;align-items:center!important;max-width:100%!important;overflow:hidden!important}
+.job-pin .job-badges>span{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:3px!important;min-width:0!important;flex:0 1 auto!important;white-space:nowrap!important;padding:4px 5px!important;font-size:10px!important;line-height:14px!important;border-radius:6px!important;box-sizing:border-box!important}
+.job-pin .job-badges .job-type{background:var(--vehicle-bg)!important;color:var(--vehicle-fg)!important;border:1px solid var(--vehicle-border)!important;font-weight:800!important}
+.job-pin .job-badges .job-distance{background:#EDF2F7!important;color:#263F56!important;border:1px solid #D9E2EC!important;font-weight:800!important}
+.job-pin .job-badges .job-operation{flex-shrink:0!important}
+.job-pin .job-badges svg{width:12px!important;height:12px!important;flex:none!important}
+
+/* Correção definitiva: as três informações cabem no cartão sem recorte. */
+.job-pin{width:322px!important}
+.job-details{box-sizing:border-box!important;width:calc(100% - 65px)!important;max-width:calc(100% - 65px)!important;overflow:hidden!important}
+.job-badges{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) minmax(0,1.4fr)!important;gap:3px!important;width:100%!important;min-width:0!important;box-sizing:border-box!important;white-space:nowrap!important}
+.job-badges .job-operation,.job-badges .job-badge{display:flex!important;box-sizing:border-box!important;min-width:0!important;max-width:100%!important;width:100%!important;overflow:hidden!important;padding:4px 3px!important;gap:2px!important;font-size:10px!important;letter-spacing:-.2px!important;justify-content:center!important;line-height:14px!important}
+.job-badges svg{width:11px!important;height:11px!important;flex-shrink:0!important}
+.job-badges .job-distance{font-variant-numeric:tabular-nums!important}
+
+/* Ajuste estrutural: impedir que o cartão recorte veículo e distância. */
+.job-pin{width:350px!important;overflow:visible!important}
+.job-marker-row{width:350px!important;display:flex!important;gap:7px!important;overflow:visible!important}
+.job-symbol-wrap{flex:0 0 57px!important;width:57px!important}
+.job-details{width:286px!important;max-width:286px!important;min-width:286px!important;flex:0 0 286px!important;overflow:visible!important;box-sizing:border-box!important}
+.job-badges{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) minmax(0,1.3fr)!important;gap:4px!important;overflow:visible!important;width:100%!important;max-width:100%!important}
+.job-badges>span{display:flex!important;visibility:visible!important;opacity:1!important;min-width:0!important;width:100%!important;max-width:100%!important;overflow:visible!important;white-space:nowrap!important;justify-content:center!important;align-items:center!important;box-sizing:border-box!important;font-size:10px!important;padding:4px 2px!important;line-height:15px!important}
+.job-badges .job-type{background:var(--vehicle-bg,#e5f0ff)!important;color:var(--vehicle-fg,#174b85)!important;border-color:var(--vehicle-border,#b8d2ef)!important}
+.job-badges .job-distance{background:#e7f1ff!important;color:#174b85!important;border-color:#bdd4ed!important}
+.job-badges svg{width:11px!important;height:11px!important;flex:0 0 11px!important}
+
+/* Refinamento: cartão alinhado à bolinha e animação sincronizada do pino. */
+.job-marker-row{align-items:flex-start!important;gap:5px!important}
+.job-details{margin-top:82px!important;position:relative!important;align-self:flex-start!important;width:286px!important;min-width:286px!important;max-width:286px!important;padding:8px 9px!important;transform:none!important}
+.job-topline{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:6px!important}
+.job-place{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.job-closing{flex-shrink:0!important;white-space:nowrap!important}
+.job-badges{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) minmax(0,1.3fr)!important;gap:4px!important}
+.job-badges>span{min-width:0!important;max-width:100%!important;overflow:hidden!important;white-space:nowrap!important}
+/* A bolinha e a seta sobem e descem juntas; a sombra permanece no solo. */
+.job-symbol{animation:zap-marker-bob 1.6s ease-in-out infinite!important;transform-origin:center center!important}
+.job-arrow{animation:zap-marker-bob 1.6s ease-in-out infinite!important;transform-origin:center center!important}
+.job-shadow{animation:zap-shadow-pulse 1.6s ease-in-out infinite!important}
+@keyframes zap-marker-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes zap-shadow-pulse{0%,100%{transform:scale(1);opacity:.72}50%{transform:scale(.78);opacity:.4}}
+@media(prefers-reduced-motion:reduce){.job-symbol,.job-arrow,.job-shadow{animation:none!important}}
+
+/* Correção da captura: três etiquetas sempre visíveis e cartão alinhado ao ícone. */
+.job-pin{width:350px!important;height:154px!important;overflow:visible!important}
+.job-marker-row{width:350px!important;height:154px!important;display:flex!important;align-items:flex-start!important;gap:6px!important;overflow:visible!important}
+.job-symbol-wrap{flex:0 0 57px!important;width:57px!important;height:154px!important;position:relative!important}
+.job-details{flex:0 0 286px!important;width:286px!important;min-width:286px!important;max-width:286px!important;min-height:108px!important;height:auto!important;box-sizing:border-box!important;position:relative!important;margin:14px 0 0 0!important;padding:9px 10px 10px!important;overflow:visible!important;transform:none!important;align-self:flex-start!important}
+.job-topline{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:5px!important}
+.job-place{min-width:0!important;flex:1 1 auto!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.job-closing{flex:0 0 auto!important}
+.job-carrier{display:flex!important;align-items:center!important;min-height:22px!important;margin:5px 0 0!important}
+.job-pin .job-badges{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:stretch!important;justify-content:space-between!important;gap:4px!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;height:auto!important;min-height:25px!important;margin:8px 0 0!important;padding:0!important;overflow:visible!important;white-space:nowrap!important;grid-template-columns:none!important}
+.job-pin .job-badges>span,.job-pin .job-badges .job-operation,.job-pin .job-badges .job-badge{display:inline-flex!important;flex-direction:row!important;flex-wrap:nowrap!important;flex:1 1 0!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;width:0!important;min-width:0!important;max-width:none!important;min-height:25px!important;margin:0!important;padding:4px 2px!important;overflow:visible!important;visibility:visible!important;opacity:1!important;white-space:nowrap!important;font-size:10px!important;line-height:15px!important;letter-spacing:-.2px!important;border-radius:6px!important}
+.job-pin .job-badges .job-operation{flex:1 1 0!important;background:var(--job-color)!important;color:#fff!important;border:1px solid var(--job-color)!important}
+.job-pin .job-badges .job-type{flex:1.2 1 0!important;background:var(--vehicle-bg,#e5f0ff)!important;color:var(--vehicle-fg,#174b85)!important;border:1px solid var(--vehicle-border,#b8d2ef)!important}
+.job-pin .job-badges .job-distance{flex:1.3 1 0!important;background:#e7f1ff!important;color:#174b85!important;border:1px solid #bdd4ed!important;font-variant-numeric:tabular-nums!important}
+.job-pin .job-badges svg{display:block!important;flex:0 0 11px!important;width:11px!important;height:11px!important;stroke:currentColor!important;fill:none!important}
+.job-symbol{animation:zap-marker-bob 1.6s ease-in-out infinite!important}
+.job-arrow{animation:zap-marker-bob 1.6s ease-in-out infinite!important}
+.job-shadow{animation:zap-shadow-pulse 1.6s ease-in-out infinite!important}
+@media(prefers-reduced-motion:reduce){.job-symbol,.job-arrow,.job-shadow{animation:none!important}}
+
+/* Layout final: colunas proporcionais sem texto invadindo outras etiquetas. */
+.job-pin,.job-marker-row{width:399px!important;max-width:none!important;overflow:visible!important}
+.job-marker-row{gap:6px!important}
+.job-symbol-wrap{flex:0 0 57px!important;width:57px!important}
+.job-details{flex:0 0 336px!important;width:336px!important;min-width:336px!important;max-width:336px!important;margin-top:14px!important;box-sizing:border-box!important;overflow:hidden!important}
+.job-pin .job-badges{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.25fr)!important;gap:5px!important;width:100%!important;max-width:100%!important;overflow:hidden!important;align-items:stretch!important}
+.job-pin .job-badges>span,.job-pin .job-badges .job-operation,.job-pin .job-badges .job-badge{width:auto!important;min-width:0!important;max-width:100%!important;flex:none!important;display:flex!important;overflow:hidden!important;white-space:nowrap!important;gap:4px!important;padding:5px 4px!important;font-size:10px!important;letter-spacing:0!important;line-height:14px!important;box-sizing:border-box!important;text-overflow:clip!important}
+.job-pin .job-badges svg{flex:0 0 12px!important;width:12px!important;height:12px!important}
+.job-pin .job-badges .job-distance{font-size:10px!important}
+@media(max-width:420px){.job-pin .job-badges{gap:4px!important}}
+
+/* Tela de comprovacao fotografica */
+.zap-camera-screen{position:fixed;inset:0;z-index:99999;background:#080b10;color:#fff;display:flex;flex-direction:column;overflow:hidden;font-family:Arial,sans-serif}
+.zap-camera-video,.zap-camera-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.zap-camera-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.75),transparent 35%,transparent 52%,rgba(0,0,0,.9));pointer-events:none}
+.zap-camera-top{position:relative;z-index:2;padding:max(18px,env(safe-area-inset-top)) 18px 12px;display:flex;align-items:flex-start;gap:12px}
+.zap-camera-close,.zap-camera-switch{width:42px;height:42px;flex-shrink:0;border:1px solid #ffffff55;background:#171a20a6;border-radius:50%;color:#fff;display:grid;place-items:center;cursor:pointer}
+.zap-camera-title{flex:1;min-width:0}.zap-camera-title strong{display:block;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zap-camera-title small{display:block;margin-top:5px;color:#dce2e9;font-size:12px}
+.zap-camera-float{position:relative;z-index:2;margin:8px 16px 0;background:#101820a8;backdrop-filter:blur(14px);border:1px solid #ffffff3b;border-radius:16px;padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px}
+.zap-camera-float div{min-width:0}.zap-camera-float span{display:block;color:#c5d1df;font-size:10px;margin-bottom:3px}.zap-camera-float b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zap-camera-bottom{position:relative;z-index:2;margin-top:auto;padding:20px 20px max(22px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;align-items:center}
+.zap-camera-note{font-size:12px;color:#e5ebf2;text-align:center;text-shadow:0 1px 4px #000}
+.zap-camera-shutter{width:76px;height:76px;border-radius:50%;background:#fff;border:5px solid #d1d6dc;box-shadow:0 0 0 5px #ffffff3b;cursor:pointer}
+.zap-camera-actions{display:flex;width:100%;gap:10px}.zap-camera-actions button{flex:1;min-width:0;border:0;border-radius:14px;padding:15px 8px;font-weight:800;font-size:14px;cursor:pointer}.zap-camera-main{background:#f58220;color:#fff}.zap-camera-secondary{background:#ffffff28;color:#fff;border:1px solid #ffffff66!important}
+.zap-camera-unavailable{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:28px;text-align:center;background:#151c27;color:#f1f5f9;line-height:1.5}
+.zap-camera-unavailable div{max-width:330px}.zap-camera-unavailable b{display:block;margin-bottom:10px;font-size:18px}
+@media(max-width:360px){.zap-camera-float{margin-inline:10px}.zap-camera-top{padding-inline:10px}}
+
+/* Controles de camera estilo mobile, foto central e galeria */
+.zap-camera-file-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.zap-camera-controls{display:grid;grid-template-columns:minmax(0,1fr) 82px minmax(0,1fr);align-items:center;width:min(100%,390px);gap:14px}
+.zap-camera-shutter{justify-self:center;width:76px;height:76px;border-radius:50%;border:5px solid #fff;background:#fff;box-shadow:inset 0 0 0 3px #222,0 0 0 2px #ffffff66;cursor:pointer}
+.zap-camera-shutter:disabled{opacity:.45}
+.zap-camera-gallery{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:60px;background:transparent;border:0;color:white;font-size:11px;font-weight:700;cursor:pointer}
+.zap-camera-gallery svg{width:24px;height:24px}
+.zap-camera-review{display:grid;grid-template-columns:1fr 1.3fr;gap:12px;width:min(100%,390px)}
+.zap-camera-review button{border-radius:16px;padding:16px 10px;font-weight:800;font-size:15px;border:0;cursor:pointer}
+.zap-camera-change-file{background:transparent;border:0;color:#fff;text-decoration:underline;font-size:12px;cursor:pointer}
+.zap-camera-error{background:#611f1fe8;border-radius:9px;padding:8px 12px;text-align:center;font-size:12px;max-width:90%}
+.zap-camera-photo{object-fit:contain;background:#090c12}
+.zap-camera-bottom{padding-bottom:max(24px,env(safe-area-inset-bottom))}
+
+/* Serviço finalizado: X compacto, sem label */
+.zap-completed-icon{background:transparent!important;border:0!important}
+.zap-completed-x{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#263747;color:white;font-family:Arial,sans-serif;font-size:29px;font-weight:500;line-height:1;border:2px solid white;box-shadow:0 3px 12px #0005;cursor:pointer}
+
+/* Localização em tempo real do motorista */
+.zap-driver-location-icon{background:transparent!important;border:0!important}
+.zap-driver-location-pulse{position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(24,120,233,.12);animation:zap-gps-pulse 2.2s ease-in-out infinite}
+.zap-driver-location-dot{width:18px;height:18px;border:3px solid white;border-radius:50%;background:#1878e9;box-shadow:0 2px 9px rgba(0,38,98,.45)}
+@keyframes zap-gps-pulse{0%,100%{box-shadow:0 0 0 0 rgba(24,120,233,.22)}50%{box-shadow:0 0 0 9px rgba(24,120,233,0)}}
+@media(prefers-reduced-motion:reduce){.zap-driver-location-pulse{animation:none}}
+.zap-route-status{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;margin:6px 0;border-radius:10px;background:#fff1e3;color:#74400c;font-size:12px;font-weight:600}.zap-route-status button{border:0;background:transparent;color:#74400c;font-size:21px;cursor:pointer;line-height:1;padding:0 4px}
+
+.job-modal-instructions{background:#f1f6fa;border:1px solid #dce8f0;border-left:3px solid #f58220;border-radius:12px;padding:11px 13px;margin:12px 0 4px}.job-modal-instructions-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#193b59}.job-modal-instructions-title svg{width:15px;height:15px}.job-modal-instructions p{margin:6px 0 0;font-size:13px;line-height:1.4;color:#324c5e;white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* Galeria de comprovantes: captura contínua e prévias sem interromper a câmera */
+.zap-photo-strip{display:flex;gap:9px;overflow-x:auto;width:100%;max-width:480px;padding:5px 3px 9px;scrollbar-width:thin;flex-shrink:0}
+.zap-photo-thumb{position:relative;flex:0 0 72px;width:72px;height:72px;border-radius:11px;overflow:visible}
+.zap-photo-thumb>button:first-child{width:100%;height:100%;padding:0;border:2px solid #fff8;border-radius:11px;background:#1b2633;overflow:hidden;cursor:pointer}
+.zap-photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.zap-photo-remove{position:absolute;top:-7px;right:-7px;width:23px;height:23px;border-radius:50%;border:1px solid white;background:#bd2436;color:white;font-size:19px;line-height:18px;cursor:pointer}
+.zap-photo-viewer{position:absolute;inset:0;z-index:10;background:#090b10f5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:65px 12px 30px}
+.zap-photo-viewer img{max-width:100%;max-height:78%;object-fit:contain}
+.zap-photo-viewer>button{position:absolute;right:18px;top:20px;background:#ffffff26;color:white;border:1px solid #ffffff66;border-radius:50%;width:42px;height:42px;font-size:26px;cursor:pointer}
+.zap-photo-viewer span{font-size:13px;color:#fff}
+.zap-camera-gallery:disabled{opacity:.45;cursor:not-allowed}
+
+/* Confirmação sempre acessível: valida a foto ao tocar, sem quebrar o botão. */
+.zap-camera-controls{grid-template-columns:minmax(0,1fr) 76px minmax(0,1fr)!important;gap:8px!important;width:min(100%,420px)!important}
+.zap-camera-confirm{min-width:0!important;width:100%!important;padding:9px 5px!important;border:1px solid rgba(255,255,255,.5)!important;border-radius:13px!important;background:#f58220!important;color:#fff!important;flex-direction:row!important;gap:5px!important;overflow:hidden!important}
+.zap-camera-confirm svg{width:18px!important;height:18px!important;flex-shrink:0!important}
+.zap-camera-confirm span{font-size:12px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.zap-camera-gallery:not(.zap-camera-confirm){min-width:0!important}
+@media(max-width:360px){.zap-camera-controls{grid-template-columns:minmax(0,1fr) 66px minmax(0,1fr)!important}.zap-camera-shutter{width:64px!important;height:64px!important}.zap-camera-confirm span{font-size:11px!important}}
+
+/* Chamadas de serviços — demonstração */
+.call-test{position:fixed;top:76px;left:12px;z-index:4100;background:#f58220;color:white;border:0;border-radius:12px;padding:10px 13px;font-weight:800;display:flex;align-items:center;gap:7px;box-shadow:0 4px 16px #102c4450;cursor:pointer}.call-test svg,.call-banner svg,.call-detail svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.call-banner{position:fixed;top:12px;left:50%;transform:translateX(-50%);width:min(calc(100% - 24px),440px);z-index:6500;background:#193b59;color:white;border-radius:18px;padding:14px;box-shadow:0 12px 36px #071b2b80;display:flex;align-items:center;gap:12px;box-sizing:border-box;animation:call-drop .25s ease-out}.call-banner-main{flex:1;min-width:0}.call-banner-main small{display:block;color:#bcd5e8;font-size:11px}.call-banner-main strong{display:block;font-size:15px;margin:3px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.call-banner-main span{font-size:12px}.call-banner button{background:#f58220;color:#fff;border:0;border-radius:10px;padding:12px;font-weight:800;cursor:pointer}.call-bell{background:#f58220;border-radius:50%;width:42px;height:42px;display:grid;place-items:center;flex-shrink:0;animation:call-ring .7s infinite alternate}.call-detail-overlay{position:fixed;inset:0;background:#071c30a8;z-index:7000;display:flex;align-items:center;justify-content:center;padding:15px;box-sizing:border-box}.call-detail{background:white;color:#193b59;border-radius:22px;padding:22px;width:min(100%,440px);box-shadow:0 18px 55px #071b2b80}.call-detail h2{margin:8px 0 5px;font-size:24px}.call-detail p{margin:4px 0 16px;color:#65798b}.call-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0}.call-detail-grid div{background:#f2f6fa;border-radius:11px;padding:11px;min-width:0}.call-detail-grid small{display:block;color:#758a9b;font-size:11px;margin-bottom:4px}.call-detail-grid strong{font-size:13px;overflow-wrap:anywhere}.call-detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:17px}.call-detail-actions button{border:0;border-radius:12px;min-height:48px;font-size:15px;font-weight:800;color:white;cursor:pointer}.call-reject{background:#c83d45}.call-accept{background:#168450}.call-instruction{background:#fff6ed;border-left:3px solid #f58220;border-radius:8px;padding:12px;font-size:13px}.call-detail-close{float:right;background:#eaf0f5;border:0;border-radius:50%;width:32px;height:32px;cursor:pointer}.call-test:focus-visible,.call-banner button:focus-visible,.call-detail button:focus-visible{outline:3px solid #ffb866;outline-offset:2px}@keyframes call-ring{from{transform:rotate(-12deg)}to{transform:rotate(12deg)}}@keyframes call-drop{from{opacity:0;transform:translate(-50%,-18px)}to{opacity:1;transform:translate(-50%,0)}}
+
+.role-screen{min-height:100dvh;background:linear-gradient(150deg,#edf3f8,#fff5eb);display:flex;align-items:center;justify-content:center;padding:22px}.role-panel{width:min(100%,470px);background:#fff;border:1px solid #e4e9ee;border-radius:22px;padding:28px;box-shadow:0 18px 60px #193b591c;text-align:center}.role-panel .logo{margin:0 auto 14px}.role-panel h1{color:#193b59;font-size:25px;margin:0 0 8px}.role-panel p{color:#647589;font-size:14px;line-height:1.5}.role-choice{display:flex;gap:14px;align-items:center;text-align:left;width:100%;padding:18px 16px;background:#fff;border:1px solid #d9e2ea;border-radius:14px;margin-top:13px;color:#193b59}.role-choice:hover,.role-choice:focus-visible{border-color:#f58220;background:#fff9f2}.role-choice svg{width:30px;height:30px;fill:none;stroke:#f58220;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}.role-choice strong{display:block;font-size:17px}.role-choice small{display:block;color:#6b7988;font-size:12px;margin-top:4px}.carrier-page{min-height:100dvh;background:#f2f5f8;color:#193b59;padding:20px}.carrier-shell{max-width:760px;margin:auto}.carrier-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}.carrier-card{background:#fff;border:1px solid #dfe6ed;border-radius:16px;padding:22px;margin-bottom:16px}.carrier-card h2{margin:0 0 14px;font-size:20px}.carrier-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.carrier-fields label{font-size:12px;font-weight:700}.carrier-fields input,.carrier-fields select,.carrier-fields textarea{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid #cbd5df;border-radius:9px;color:#193b59;background:white;font:inherit}.carrier-fields .wide{grid-column:1/-1}.carrier-order{padding:13px 0;border-bottom:1px solid #e5ebf0}.carrier-order:last-child{border-bottom:0}.carrier-order strong{display:block}.carrier-order small{color:#677b8c}.carrier-back{border:1px solid #cbd5df;background:white;border-radius:9px;padding:10px 13px;color:#193b59;font-weight:700}.carrier-message{color:#16744a;font-size:13px;margin:12px 0 0}@media(max-width:480px){.carrier-fields{grid-template-columns:1fr}.carrier-fields .wide{grid-column:auto}.carrier-header h1{font-size:20px}}
+.carrier-order-icon{background:transparent;border:0}.carrier-pin{position:relative;display:flex;justify-content:center;align-items:center;margin:0 auto;background:var(--pin-color);border:3px solid white;border-radius:18px;min-height:35px;max-width:106px;padding:4px 8px;color:white;font-size:12px;font-weight:800;box-shadow:0 3px 10px #0005;text-transform:uppercase}.carrier-pin:after{content:"";position:absolute;bottom:-11px;left:calc(50% - 7px);border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid var(--pin-color)}.carrier-popup{font-family:Arial,sans-serif;min-width:200px;color:#193b59}.carrier-popup strong{font-size:16px}.carrier-popup p{font-size:12px;color:#607488;line-height:1.4}.carrier-popup dl{display:grid;grid-template-columns:90px 1fr;gap:7px 8px;font-size:12px}.carrier-popup dt{font-weight:700}.carrier-popup dd{margin:0;overflow-wrap:anywhere}.carrier-orders-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}.carrier-orders-footer button{border:0;border-radius:8px;padding:9px;background:#193b59;color:#fff;font-size:12px;font-weight:700}
+
+.carrier-map-controls{position:absolute;top:15px;left:15px;right:15px;z-index:650;display:flex;justify-content:space-between;pointer-events:none}.carrier-map-controls>*{pointer-events:auto}.carrier-map-tools{position:absolute;right:15px;bottom:clamp(215px,34dvh,340px);z-index:650;display:flex;flex-direction:column;gap:9px}.carrier-map-control{width:46px;height:46px;display:grid;place-items:center;background:#fff;color:#193b59;border:0;border-radius:12px;box-shadow:0 3px 12px #193b5933;font-size:25px;font-weight:700;cursor:pointer}.carrier-map-control svg,.carrier-drawer svg,.carrier-profile-modal svg{width:23px;height:23px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}.carrier-map-exit{background:#193b59;color:#fff}.carrier-overlay{position:fixed;inset:0;z-index:2500;background:#091c30a8;display:flex}.carrier-drawer{background:#fff;color:#193b59;width:min(330px,85vw);height:100%;padding:24px 16px;box-shadow:6px 0 24px #0003}.carrier-drawer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}.carrier-drawer-head button,.carrier-profile-close{background:transparent;border:0;color:#193b59}.carrier-drawer>button{display:flex;align-items:center;gap:13px;width:100%;padding:15px 10px;border:0;border-bottom:1px solid #e7edf2;background:#fff;color:#193b59;text-align:left;font-weight:700}.carrier-profile-modal{position:relative;margin:auto;background:#fff;border-radius:18px;padding:28px;max-width:340px;width:calc(100% - 40px);color:#193b59;text-align:center}.carrier-profile-modal>svg{width:42px;height:42px}.carrier-profile-close{position:absolute;right:12px;top:12px}.carrier-profile-modal>button:last-child{border:0;border-radius:9px;padding:12px;background:#f58220;color:#fff;font-weight:700}.carrier-profile-modal p{color:#607488}@media(max-height:650px){.carrier-map-tools{bottom:190px}.carrier-map-control{width:40px;height:40px}}
+.carrier-order-detail-backdrop{position:fixed;inset:0;z-index:9500;background:rgba(12,29,46,.38);display:flex;align-items:flex-end;justify-content:center;padding:12px;box-sizing:border-box}.carrier-order-detail{width:min(100%,480px);max-height:85dvh;overflow:auto;pointer-events:auto}.carrier-order-detail .job-modal-info{margin-top:8px}
+
+/* Barra de busca compacta: limpar, pesquisar e abrir locais */
+.carrier-search{gap:7px;min-width:0}
+.carrier-search-input-wrap{display:flex;align-items:center;flex:1;min-width:0;gap:2px}
+.carrier-search-input-wrap input{width:100%;min-width:0;flex:1}
+.carrier-search .carrier-search-clear{display:inline-flex;align-items:center;justify-content:center;flex:0 0 30px;width:30px;height:34px;padding:5px;border-radius:8px;background:#f0f3f6;color:#687c8c;cursor:pointer}
+.carrier-search .carrier-search-clear svg{width:17px;height:17px;stroke:currentColor}
+.carrier-search .carrier-search-action{display:inline-flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;height:42px;padding:9px;cursor:pointer}
+.carrier-search .carrier-search-action svg{stroke:white;width:20px;height:20px}
+.carrier-search .carrier-places-trigger{flex:0 0 42px;width:42px;height:42px;padding:9px}
+@media(max-width:380px){.carrier-search .carrier-search-action,.carrier-search .carrier-places-trigger{flex-basis:38px;width:38px;height:38px;padding:8px}.carrier-search{gap:4px}}
+
+/* GPS visível ao abrir o mapa da transportadora */
+.carrier-gps-banner{position:absolute;z-index:550;top:calc(78px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 28px);display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;background:#fff;box-shadow:0 4px 16px #102f4a40;color:#193b59;font-size:12px;font-weight:700}
+.carrier-gps-banner button{display:flex;align-items:center;gap:6px;white-space:nowrap;border:0;border-radius:7px;padding:10px 11px;background:#f58220;color:white;font-weight:800;font-size:12px}
+.carrier-gps-banner button:disabled{opacity:.65}.carrier-gps-banner svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
+@media(max-width:390px){.carrier-gps-banner{top:calc(78px + env(safe-area-inset-top));font-size:11px;gap:6px}.carrier-gps-banner button{padding:9px 7px;font-size:11px}}
+
+/* V4: o formulário de configuração sempre fica acima dos controles Leaflet e dos botões flutuantes. */
+.carrier-map-page.carrier-config-open .carrier-map-bottom{z-index:12000!important;position:absolute;isolation:isolate;box-shadow:0 -10px 32px #102b4240}
+.carrier-map-page.carrier-config-open .carrier-order-config{position:relative;z-index:1}
+.carrier-map-page.carrier-config-open .carrier-map-controls,
+.carrier-map-page.carrier-config-open .carrier-map-tools,
+.carrier-map-page.carrier-config-open .carrier-gps-banner{z-index:500!important}
+.carrier-map-page.carrier-config-open .leaflet-control-container{pointer-events:none}
+
+/* V5: formulário de pedido compacto, acessível e prioritário sobre o mapa */
+.carrier-map-page.carrier-config-open .carrier-map-bottom{max-height:min(88dvh,720px);padding:12px 14px calc(12px + env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain;z-index:12000!important}
+.carrier-config-compact{margin:0;gap:11px;max-width:520px;margin-inline:auto}
+.carrier-config-compact .carrier-config-title{gap:12px;min-height:38px}
+.carrier-config-heading{display:flex;flex-direction:column;gap:2px}.carrier-config-kicker{font-size:9px;letter-spacing:1.2px;font-weight:800;color:#e27618}.carrier-config-heading strong{font-size:18px;line-height:22px;color:#193b59}
+.carrier-config-close{width:34px;height:34px;display:grid;place-items:center;flex:none;background:#edf2f6!important;border:0!important;border-radius:9px!important;padding:7px!important;color:#193b59}.carrier-config-close svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2}
+.carrier-config-location{display:flex;align-items:center;gap:7px;background:#edf4f9;color:#35536b;border:1px solid #dae5ed;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;min-width:0}.carrier-config-location svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2}.carrier-config-location span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.carrier-config-section{display:flex;flex-direction:column;gap:6px}.carrier-config-label{font-size:12px;font-weight:800;color:#193b59}.carrier-config-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.carrier-config-choice{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:42px;padding:7px 5px;border:1px solid #d4dee7;border-radius:9px;background:#f8fafc;color:#37536a;font-size:12px;font-weight:800;cursor:pointer}.carrier-config-choice svg{width:18px;height:18px;flex:none;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}.carrier-config-choice.selected{background:#fff1e4;color:#a54d07;border:2px solid #f58220;padding:6px 4px}.carrier-config-choice:focus-visible,.carrier-config-close:focus-visible{outline:3px solid #f5822080;outline-offset:2px}
+.carrier-config-people{gap:8px}.carrier-config-people label{min-width:0;font-size:11px}.carrier-config-people label span{display:block;margin-bottom:5px}.carrier-config-people select{height:40px;min-width:0;margin:0;padding:6px 25px 6px 8px;font-size:12px;border-radius:8px}
+.carrier-config-extra{border:1px solid #dce5ed;border-radius:9px;overflow:hidden;background:#fafcfe}.carrier-config-extra summary{display:flex;align-items:center;gap:7px;padding:10px;cursor:pointer;list-style:none;font-size:12px;font-weight:800;color:#193b59}.carrier-config-extra summary::-webkit-details-marker{display:none}.carrier-config-extra summary svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;flex:none}.carrier-config-extra summary span{margin-left:auto;color:#7c8b99;font-size:10px;font-weight:600}.carrier-config-extra summary svg:last-child{width:14px;height:14px;transition:transform .15s}.carrier-config-extra[open] summary svg:last-child{transform:rotate(90deg)}.carrier-config-extra textarea{width:calc(100% - 20px);margin:0 10px 10px;min-height:64px;resize:vertical;font-size:13px}
+.carrier-config-save{width:100%;min-height:46px;border-radius:10px;font-size:14px;flex-shrink:0;box-shadow:0 3px 8px #f582202e}
+@media(max-width:350px){.carrier-config-compact{gap:8px}.carrier-config-choice{font-size:11px;gap:3px}.carrier-config-choice svg{width:16px;height:16px}.carrier-config-people select{font-size:11px}}
+@media(max-height:620px){.carrier-map-page.carrier-config-open .carrier-map-bottom{max-height:92dvh}.carrier-config-compact{gap:7px}.carrier-config-choice{min-height:37px}.carrier-config-location{padding:6px 9px}}
+
+
+/* V8: painel acompanha o teclado virtual no Android/iOS. */
+.carrier-map-page.carrier-config-open .carrier-map-bottom{
+ bottom:var(--zap-keyboard-bottom,0px)!important;
+ max-height:var(--zap-visible-height,88dvh)!important;
+ scroll-padding-bottom:18px;
+ -webkit-overflow-scrolling:touch;
+}
+.carrier-map-page.carrier-config-open.zap-keyboard-open .carrier-map-bottom{
+ border-radius:14px 14px 0 0;
+ padding-bottom:10px!important;
+}
+.carrier-map-page.carrier-config-open.zap-keyboard-open .carrier-config-compact{gap:7px}
+.carrier-map-page.carrier-config-open.zap-keyboard-open .carrier-config-instructions textarea{min-height:75px;max-height:120px}
+
+/* V6: observações prioritárias, sempre abertas e prontas para digitar */
+.carrier-config-instructions{display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.carrier-config-instructions label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;color:#193b59}
+.carrier-config-instructions label svg{width:17px;height:17px;stroke:#f58220;stroke-width:2;fill:none}
+.carrier-config-instructions textarea{display:block;width:100%;min-height:92px;max-height:26dvh;resize:vertical;box-sizing:border-box;border:1px solid #bccbd8;border-radius:9px;padding:11px 12px;font-size:14px;line-height:1.45;color:#193b59;background:#fff;outline:none}
+.carrier-config-instructions textarea:focus{border-color:#f58220;box-shadow:0 0 0 3px #f5822026}
+
+/* V9: cores semânticas para serviços e veículos; seleção visível e ícones completos. */
+.carrier-config-service .service-coleta{--choice-color:#08784a;--choice-bg:#e8f7ef;--choice-border:#a5d9bd}
+.carrier-config-service .service-entrega{--choice-color:#bb5c08;--choice-bg:#fff1df;--choice-border:#f2c795}
+.carrier-config-service .service-troca{--choice-color:#2459b9;--choice-bg:#e9f0ff;--choice-border:#b4cafa}
+.carrier-config-vehicle .vehicle-moto{--choice-color:#08633e;--choice-bg:#ddf7ed;--choice-border:#a9e8ce}
+.carrier-config-vehicle .vehicle-carro{--choice-color:#174c9b;--choice-bg:#e1edff;--choice-border:#b5d0fc}
+.carrier-config-vehicle .vehicle-utilitario{--choice-color:#6833a3;--choice-bg:#f1e5ff;--choice-border:#dac0f5}
+.carrier-config-options .carrier-config-choice{background:var(--choice-bg);color:var(--choice-color);border:1px solid var(--choice-border);position:relative;transition:background .15s,border-color .15s,box-shadow .15s}
+.carrier-config-options .carrier-config-choice.selected{background:var(--choice-bg);color:var(--choice-color);border:2px solid var(--choice-color);padding:6px 4px;box-shadow:inset 0 0 0 1px #fff,0 0 0 2px color-mix(in srgb,var(--choice-color) 14%,transparent)}
+.carrier-config-options .carrier-config-choice svg{display:block;width:19px;height:19px;stroke:currentColor;fill:none;flex-shrink:0}
+.carrier-config-options .carrier-config-choice.selected:after{content:'✓';position:absolute;top:1px;right:4px;font-size:10px;font-weight:900;line-height:1;color:var(--choice-color)}
+@media(max-width:360px){.carrier-config-options .carrier-config-choice{gap:4px;font-size:11px}.carrier-config-options .carrier-config-choice svg{width:17px;height:17px}}
+
+/* V10: resultados de endereço selecionáveis diretamente no mapa. */
+.zap-search-result-icon{background:transparent!important;border:0!important;overflow:visible!important}
+.zap-search-result-icon span{display:grid;place-items:center;width:35px;height:35px;background:#f58220;color:white;border:3px solid white;border-radius:50% 50% 50% 3px;box-shadow:0 3px 12px #102b4280;font-size:0;position:relative}
+.zap-search-result-icon span::after{content:attr(data-label);font-size:14px}
+.zap-search-result-icon span{font-size:14px;line-height:1;font-weight:900;text-shadow:0 1px 1px #0003}
+.carrier-search-results{max-height:min(148px,24dvh);overflow-y:auto;margin-top:6px;border-radius:10px}
+.carrier-search-results-hint{display:flex;align-items:center;gap:6px;padding:7px 9px;background:#eaf3fa;color:#193b59;font-size:11px;font-weight:700}
+.carrier-search-results-hint svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.carrier-search-results button{display:flex;align-items:center;gap:9px;padding:9px 8px;font-size:12px;line-height:1.25}
+.carrier-search-results button span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carrier-result-number{flex:0 0 24px;width:24px;height:24px;display:grid;place-items:center;background:#f58220;color:#fff;border-radius:50%;font-size:12px}
+
+/* V12: chamada como painel inferior, com mapa e rota visíveis acima */
+.call-detail-overlay{position:fixed;inset:0;z-index:7000;background:transparent;display:flex;align-items:flex-end;justify-content:center;padding:0;pointer-events:none}
+.call-detail{pointer-events:auto;width:100%;max-width:540px;box-sizing:border-box;border-radius:22px 22px 0 0;padding:16px 18px max(18px,env(safe-area-inset-bottom));box-shadow:0 -8px 35px #071b2b40;max-height:min(58dvh,500px);overflow-y:auto;overscroll-behavior:contain}
+.call-detail::before{content:"";display:block;width:42px;height:5px;border-radius:8px;background:#cbd5df;margin:0 auto 10px}
+.call-detail h2{font-size:19px;margin:5px 0 3px}.call-detail p{margin:3px 0 9px}.call-detail-grid{margin:10px 0;gap:7px}.call-detail-grid div{padding:9px}.call-detail-actions{position:sticky;bottom:-16px;background:white;padding:9px 0 3px;margin-top:9px}.call-route-status{background:#e9f4fc;border-radius:9px;padding:9px 11px;font-size:12px;color:#193b59;margin:9px 0;display:flex;align-items:center;gap:7px}.call-instruction{padding:10px}
+@media(min-width:700px){.call-detail{border-radius:22px 22px 0 0}}
+
+/* V14: busca compacta, máscara telefônica e catálogo persistente de clientes */
+.zap-client-icon-button{border:0;display:grid;place-items:center;flex:0 0 35px;height:34px;border-radius:9px;background:#edf3f9;color:#193b59;cursor:pointer;padding:0}
+.zap-client-icon-button svg{width:19px;height:19px;stroke:currentColor;fill:none}
+.zap-client-icon-button.zap-client-add{background:#fff0e3;color:#ac5409}
+.zap-client-list-modal{gap:12px}
+.zap-client-list-search{display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid #bdcbd9;border-radius:10px;min-height:44px}
+.zap-client-list-search svg{width:18px;height:18px;color:#60788c}
+.zap-client-list-search input{border:0;outline:0;flex:1;min-width:0;font-size:14px}
+.zap-client-list-items{overflow-y:auto;max-height:min(46dvh,350px);display:flex;flex-direction:column;gap:4px}
+.zap-client-list-items button{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #e5edf3;border-radius:10px;padding:10px;background:#fff;color:#193b59}
+.zap-client-list-items button>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.zap-client-list-items strong{font-size:13px}.zap-client-list-items small{font-size:12px;color:#667e90}
+.zap-client-list-items svg{width:17px;height:17px}
+.zap-client-list-items p{font-size:13px;text-align:center;color:#667e90;padding:16px}
+.zap-client-list-new{display:flex;align-items:center;justify-content:center;gap:8px;border:0;background:#fff0e3;color:#ac5409;border-radius:10px;padding:12px;font-weight:800}
+.zap-client-list-new svg{width:18px;height:18px}
+
+/* V15: painel de pedido recolhível, preservando os dados preenchidos. */
+.carrier-map-page.carrier-config-collapsed .carrier-map-bottom{max-height:none!important;overflow:visible!important;background:transparent!important;box-shadow:none!important;padding:0 12px calc(12px + env(safe-area-inset-bottom))!important;pointer-events:none}
+.carrier-config-restore{pointer-events:auto;display:flex;align-items:center;gap:11px;width:100%;max-width:520px;margin:0 auto;border:1px solid #d9e5ee;border-radius:16px;padding:12px 14px;background:#fff;color:#193b59;text-align:left;box-shadow:0 5px 22px #102b4238;cursor:pointer}
+.carrier-config-restore-pin{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:12px;background:#fff0e4;color:#d66d0e}.carrier-config-restore-pin svg{width:20px;height:20px}
+.carrier-config-restore-text{display:flex;flex:1;flex-direction:column;min-width:0;gap:3px}.carrier-config-restore-text small{font-size:10px;font-weight:800;letter-spacing:.5px;color:#d16a0c}.carrier-config-restore-text strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carrier-config-restore-chevron{color:#193b59}.carrier-config-restore-chevron svg{width:21px;height:21px}
+.carrier-config-drag{display:flex;justify-content:center;align-items:center;height:19px;cursor:grab;touch-action:pan-x;margin:-7px -8px 1px;padding:5px}.carrier-config-drag span{display:block;width:44px;height:5px;border-radius:9px;background:#a8b7c4}
+</style>
+<style>
+.job-modal-backdrop{position:fixed;inset:0;background:rgba(12,29,46,.52);z-index:5000;display:flex;align-items:flex-end;justify-content:center;padding:0 12px 12px;box-sizing:border-box}.job-modal{width:min(100%,480px);max-height:calc(100dvh - 20px);overflow:auto;background:#fff;border-radius:22px;padding:12px 18px 18px;box-shadow:0 15px 55px #102c4459;font-family:Arial,sans-serif;color:#193b59;box-sizing:border-box}.job-modal-handle{height:5px;width:42px;background:#cbd6df;border-radius:8px;margin:0 auto 16px}.job-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.job-modal-head h2{font-size:21px;margin:5px 0 5px}.job-modal-head p{font-size:13px;color:#62788b;margin:0 0 14px}.job-modal-kicker{font-size:10px;letter-spacing:1.1px;font-weight:800;color:#ed7919}.job-modal-close{border:0;background:#eef3f7;border-radius:50%;width:35px;height:35px;display:grid;place-items:center;flex-shrink:0;color:#193b59}.job-modal-close svg{width:18px;height:18px}.job-modal-info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.job-modal-info>div{background:#f2f6fa;border:1px solid #e4edf4;border-radius:12px;padding:11px 12px;min-width:0}.job-modal-info small{display:block;color:#698093;font-size:11px;margin-bottom:5px}.job-modal-info strong{display:block;font-size:14px;overflow-wrap:anywhere}.job-modal-hint{font-size:11px;color:#778b9b;margin:10px 0 14px}.job-modal-done{background:#e7f6ed;color:#176b42;border-radius:9px;padding:10px;font-size:12px}.job-modal-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.25fr);gap:6px}.job-modal-actions button{min-width:0;min-height:46px;padding:7px 4px;line-height:1.15;white-space:normal;border-radius:11px;border:1px solid #d5e2ec;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}.job-modal-actions svg{width:17px;height:17px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.job-action-primary{background:#f58220;color:white;border-color:#f58220!important}.job-action-nav{background:#193b59;color:white;border-color:#193b59!important}.job-action-contact{grid-column:auto;background:#eef7f1;color:#187349}.job-div-icon{cursor:pointer}@media(max-width:370px){.job-modal{padding:12px}.job-modal-actions{gap:4px}.job-modal-actions button{font-size:11px;padding:6px 2px;gap:3px}.job-modal-actions svg{width:13px;height:13px}}
+
+/* V13 - Busca de clientes com cadastro rápido */
+.zap-client-field{position:relative;display:flex;flex-direction:column;gap:6px;min-width:0}
+.zap-client-field>label{font-size:12px;font-weight:800;color:#193b59}
+.zap-client-input-wrap{display:flex;align-items:center;gap:7px;border:1px solid #bdcbd9;border-radius:10px;background:#fff;padding:0 7px 0 11px;min-height:43px}
+.zap-client-input-wrap>svg{width:17px;height:17px;flex-shrink:0;stroke:#57718a;fill:none}
+.zap-client-input-wrap input{border:0;outline:0;min-width:0;flex:1;font-size:14px;color:#193b59;background:transparent;height:40px}
+.zap-client-add{border:0;background:#fff0e3;color:#ac5409;font-weight:800;font-size:12px;border-radius:8px;padding:8px;white-space:nowrap}
+.zap-client-suggestions{max-height:174px;overflow-y:auto;border:1px solid #d4e0e9;border-radius:10px;background:white;box-shadow:0 5px 15px #193b5917;z-index:5}
+.zap-client-suggestions>button{width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;text-align:left;background:#fff;border:0;border-bottom:1px solid #e8eef3;color:#193b59}
+.zap-client-suggestions>button>span:nth-child(2){display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.zap-client-suggestions strong{font-size:12px}.zap-client-suggestions small{font-size:11px;color:#667e90}.zap-client-suggestions svg{width:16px;height:16px;flex-shrink:0}
+.zap-client-avatar{width:27px;height:27px;border-radius:50%;display:grid;place-items:center;background:#e8f0f8}
+.zap-client-suggestions>p{padding:10px;margin:0;font-size:12px;color:#718497}
+.zap-client-suggestions>button.zap-client-create{background:#fff6ee;color:#b15c0c;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.zap-client-selected{font-size:11px;color:#08784a;display:flex;align-items:center;gap:5px}.zap-client-selected svg{width:15px;height:15px}
+.zap-client-modal-backdrop{position:fixed;inset:0;z-index:99999;background:#071c35a6;display:flex;align-items:center;justify-content:center;padding:16px}
+.zap-client-modal{width:min(100%,420px);max-height:calc(100dvh - 28px);overflow-y:auto;border-radius:17px;background:#fff;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 55px #0004}
+.zap-client-modal-head{display:flex;align-items:center;justify-content:space-between}.zap-client-modal-head small{color:#e47716;font-weight:800;font-size:10px;letter-spacing:1px}.zap-client-modal-head h3{margin:3px 0 0;font-size:21px;color:#193b59}.zap-client-modal-head button{border:0;background:#eff3f7;border-radius:9px;width:34px;height:34px;display:grid;place-items:center}
+.zap-client-modal label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:800;color:#193b59}.zap-client-modal input{height:45px;border:1px solid #bdcbd9;border-radius:9px;padding:10px;font:inherit;font-size:15px;outline-color:#f58220}
+.zap-client-error{margin:0;font-size:12px;color:#b42318}
+</style><style>
+/* Painel não modal: o mapa permanece visível e interativo ao redor. */
+.job-modal-backdrop{background:transparent!important;pointer-events:none!important;z-index:5000!important;align-items:flex-end!important}
+.job-modal-backdrop .job-modal{pointer-events:auto!important;box-shadow:0 10px 32px rgba(12,29,46,.22)!important}
+</style>
+<style>
+/* Navegação: ação principal e opções do aplicativo, lado a lado com os demais botões. */
+.job-nav-option{position:relative;min-width:0;display:flex;align-items:stretch;isolation:isolate}
+.job-modal-actions .job-nav-option>.job-action-nav{flex:1;min-width:0;min-height:46px;border-radius:11px 0 0 11px;padding:6px 2px 6px 5px;gap:4px}
+.job-modal-actions .job-nav-option>.job-nav-arrow{flex:0 0 27px;min-width:27px;min-height:46px;border-radius:0 11px 11px 0;padding:0;background:#244d70;color:#fff;border:1px solid #193b59;border-left:1px solid #ffffff50}
+.job-nav-arrow svg{width:15px;height:15px}
+.job-nav-menu{position:absolute;z-index:10000;bottom:calc(100% + 7px);left:0;width:max(100%,150px);background:#fff;border:1px solid #c9d9e6;border-radius:12px;padding:5px;box-shadow:0 9px 30px #102c4450;display:flex;flex-direction:column;gap:3px}
+.job-modal-actions .job-nav-menu>button{display:flex;justify-content:space-between;align-items:center;min-height:39px;width:100%;border:0;border-radius:8px;background:transparent;color:#193b59;font-size:12px;padding:8px;text-align:left;white-space:nowrap}
+.job-modal-actions .job-nav-menu>button[aria-checked="true"]{background:#e9f3fc;color:#075d9c}
+.job-modal-actions .job-nav-menu>button:hover{background:#f0f5f9}
+</style>
+<style>
+/* Botões compactos: ícone e texto lado a lado, três ações na mesma linha. */
+.job-modal-actions{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)!important;gap:6px!important;align-items:stretch!important;width:100%!important}
+.job-modal-actions>.job-action-primary,.job-modal-actions>.job-action-contact,.job-modal-actions .job-action-nav{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:center!important;gap:5px!important;min-width:0!important;width:100%!important;white-space:nowrap!important;padding:8px 4px!important;font-size:clamp(10px,2.7vw,12px)!important;line-height:1.15!important}
+.job-modal-actions button svg,.job-modal-actions button .icon{width:16px!important;height:16px!important;min-width:16px!important;flex-shrink:0!important;margin:0!important}
+.job-modal-actions .job-nav-option{min-width:0!important;width:100%!important}
+.job-modal-actions .job-nav-option>.job-action-nav{width:auto!important;flex:1 1 auto!important;padding:8px 1px!important}
+.job-modal-actions .job-nav-option>.job-nav-arrow{flex:0 0 22px!important;min-width:22px!important;padding:0!important}
+@media(max-width:350px){.job-modal-actions{gap:3px!important}.job-modal-actions>.job-action-primary,.job-modal-actions>.job-action-contact,.job-modal-actions .job-action-nav{font-size:10px!important;gap:3px!important}.job-modal-actions button svg{width:14px!important;height:14px!important;min-width:14px!important}}
+</style>
+<style>
+.carrier-map-page{position:relative;width:100%;height:100dvh;overflow:hidden;background:#e8eef2;font-family:Arial,sans-serif}.carrier-map-canvas{position:absolute;inset:0;z-index:1}.carrier-map-header{position:absolute;top:15px;left:15px;right:70px;z-index:500;background:#193b59;color:white;border-radius:13px;padding:13px;display:flex;align-items:center;justify-content:space-between;gap:8px;box-shadow:0 3px 15px #0002}.carrier-map-header strong{font-size:13px}.carrier-map-header button{background:#fff;color:#193b59;border:0;border-radius:8px;padding:8px 12px;font-weight:700}.carrier-map-bottom{position:absolute;z-index:600;bottom:0;left:0;right:0;background:#fff;border-radius:20px 20px 0 0;padding:14px max(14px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom));box-shadow:0 -6px 25px #193b5930;max-height:72dvh;overflow-y:auto;color:#193b59}.carrier-search{display:flex;align-items:center;gap:9px;border:1px solid #d5dfe8;border-radius:12px;padding:7px}.carrier-search svg{width:20px;height:20px;stroke:#193b59;fill:none}.carrier-search input{min-width:0;flex:1;border:0;outline:0;padding:8px;font-size:14px}.carrier-search button,.carrier-submit{border:0;background:#f58220;color:#fff;border-radius:9px;padding:11px;font-weight:700}.carrier-submit{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;cursor:pointer}.carrier-submit svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.carrier-search-results{max-height:190px;overflow:auto}.carrier-search-results button{display:block;width:100%;text-align:left;padding:11px;border:0;border-bottom:1px solid #eee;background:#fff;color:#193b59;font-size:13px}.carrier-demo-list{margin-top:12px}.carrier-demo-list small,.carrier-order-count{color:#6c7d8a}.carrier-demo-list>div{display:flex;gap:7px;overflow-x:auto;padding:8px 0}.carrier-demo-list button{white-space:nowrap;background:#edf3f8;border:1px solid #dbe5ed;border-radius:20px;padding:9px;color:#193b59}.carrier-order-config{margin-top:13px;display:flex;flex-direction:column;gap:10px}.carrier-config-title{display:flex;justify-content:space-between;align-items:center}.carrier-config-title button{border:0;background:#edf3f8;border-radius:7px;padding:8px}.carrier-order-config p{font-size:12px;margin:0;color:#607488}.carrier-order-config label{font-size:12px;font-weight:700}.carrier-order-config input,.carrier-order-config select,.carrier-order-config textarea{display:block;width:100%;margin-top:5px;padding:10px;border:1px solid #cbd5df;border-radius:8px;font:inherit;color:#193b59;background:#fff}.carrier-config-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.carrier-order-count{display:block;margin-top:10px;font-size:11px}
+</style><style>
+.carrier-search .carrier-places-trigger{display:inline-flex;align-items:center;justify-content:center;gap:5px;background:#eaf1f6;color:#193b59;white-space:nowrap;padding:10px;min-width:42px;flex:0 0 42px;font-size:12px;cursor:pointer}
+.carrier-search .carrier-places-trigger svg{width:20px;height:20px;stroke:currentColor}
+.carrier-places-backdrop{position:fixed;inset:0;z-index:4000;background:#0b2037a8;display:flex;align-items:center;justify-content:center;padding:16px}
+.carrier-places-dialog{background:#fff;color:#193b59;width:min(440px,100%);max-height:min(75dvh,650px);display:flex;flex-direction:column;border-radius:19px;overflow:hidden;box-shadow:0 20px 65px #0004}
+.carrier-places-dialog header{display:flex;align-items:center;justify-content:space-between;padding:20px;border-bottom:1px solid #e5eaf0}
+.carrier-places-dialog header small{font-size:10px;color:#f58220;font-weight:800;letter-spacing:1px}
+.carrier-places-dialog header h2{margin:4px 0 0;font-size:20px}
+.carrier-places-dialog header button{border:0;background:#edf2f6;color:#193b59;border-radius:10px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer}
+.carrier-places-dialog header svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2}
+.carrier-places-items{overflow-y:auto;padding:8px 12px 15px}
+.carrier-places-items>button{width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:0;border-bottom:1px solid #edf1f5;padding:12px 5px;color:#193b59;cursor:pointer}
+.carrier-places-items>button>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.carrier-places-items strong{font-size:14px}
+.carrier-places-items small{font-size:11px;color:#6b7e8e}
+.carrier-places-items svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;flex-shrink:0}
+.carrier-place-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#fff2e7;color:#ed7d20}
+@media(max-width:380px){.carrier-search{gap:4px;padding:5px}.carrier-search input{font-size:12px;padding:5px}.carrier-search .carrier-places-trigger{font-size:11px;padding:9px 5px}.carrier-search button[type=submit]{padding:9px 6px;font-size:11px}}
+</style>
+<style>
+/* Lista de locais em tela cheia, com pesquisa fixa no rodapé */
+.carrier-places-backdrop{padding:0!important;background:#fff!important;align-items:stretch!important;justify-content:stretch!important}
+.carrier-places-dialog{width:100%!important;max-width:none!important;max-height:none!important;height:100%!important;height:100dvh!important;border-radius:0!important;box-shadow:none!important;min-height:0}
+.carrier-places-dialog header{flex-shrink:0;padding:calc(18px + env(safe-area-inset-top,0px)) 20px 16px}
+.carrier-places-items{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px 18px}
+.carrier-places-bottom-search{display:flex;align-items:center;gap:10px;flex-shrink:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #e5eaf0;background:#fff;box-shadow:0 -6px 22px #193b5910}
+.carrier-places-bottom-search>svg{width:21px;height:21px;flex-shrink:0;stroke:#64788b;stroke-width:2;fill:none}
+.carrier-places-bottom-search input{min-width:0;flex:1;border:1px solid #dce5ed;border-radius:12px;background:#f5f8fb;color:#193b59;padding:13px;font-size:16px;outline:none}
+.carrier-places-bottom-search input:focus{border-color:#f58220;background:#fff}
+.carrier-places-bottom-search button{border:0;background:#edf2f6;color:#193b59;width:38px;height:38px;border-radius:10px;display:grid;place-items:center}
+.carrier-places-bottom-search button svg{width:17px;height:17px;stroke:currentColor;stroke-width:2;fill:none}
+.carrier-places-empty{text-align:center;margin:20px 14px;padding:18px 14px;color:#b42318;background:#fff1f0;border:1px solid #fecdca;border-radius:12px;font-weight:650;display:flex;align-items:center;justify-content:center;gap:9px}.carrier-places-empty svg{width:19px;height:19px;flex-shrink:0}.carrier-message.is-error{color:#b42318;background:#fff1f0;border:1px solid #fecdca;border-radius:10px;padding:11px 13px;font-weight:600}
+</style><style>
+/* O seletor de locais fica acima de todos os controles e do mapa. */
+.carrier-map-page.carrier-places-open{overflow:visible}
+.carrier-places-open .carrier-map-bottom{z-index:10000;overflow:visible}
+.carrier-places-open .carrier-map-controls,.carrier-places-open .carrier-map-tools{visibility:hidden;pointer-events:none}
+.carrier-places-open .carrier-places-backdrop{position:fixed;inset:0;z-index:10001;width:100vw;height:100dvh;background:#fff}
+.carrier-places-open .carrier-places-dialog{position:relative;z-index:1}
+</style>
+<style>
+/* Lista de locais abaixo dos controles do mapa, sem encobrir menu e perfil. */
+.carrier-places-open .carrier-map-controls,.carrier-places-open .carrier-map-tools{visibility:visible!important;pointer-events:auto!important;z-index:11010!important}
+.carrier-places-open .carrier-places-backdrop{top:calc(80px + env(safe-area-inset-top,0px))!important;height:calc(100dvh - 80px - env(safe-area-inset-top,0px))!important;z-index:10001!important}
+.carrier-places-open .carrier-places-dialog{height:100%!important;max-height:100%!important}
+.carrier-places-open .carrier-places-dialog header{padding-top:16px!important}
+</style>
+<style>
+/* V11: lista de resultados compacta, legível e com alvos de toque maiores. */
+.carrier-search-results{max-height:min(244px,36dvh)!important;overflow-y:auto!important;overscroll-behavior:contain;border:1px solid #dbe5ee;border-radius:13px!important;background:#fff;box-shadow:0 5px 16px #193b5912;margin-top:8px!important;scrollbar-width:thin}
+.carrier-search-results-hint{position:sticky;top:0;z-index:2;min-height:34px;padding:9px 12px!important;background:#f0f5f9!important;border-bottom:1px solid #dfe8ef;font-size:11px!important;line-height:1.3;color:#405a70!important}
+.carrier-search-results .carrier-result-item{display:flex!important;align-items:center!important;gap:10px!important;width:100%;min-height:60px;padding:10px 12px!important;background:#fff;border:0;border-bottom:1px solid #edf1f5!important;text-align:left;color:#193b59;cursor:pointer;touch-action:manipulation}
+.carrier-search-results .carrier-result-item:last-child{border-bottom:0!important}
+.carrier-search-results .carrier-result-item:active,.carrier-search-results .carrier-result-item:focus-visible{background:#fff4e9!important;outline:2px solid #f58220;outline-offset:-2px}
+.carrier-search-results .carrier-result-number{display:grid!important;place-items:center!important;flex:0 0 30px!important;width:30px!important;height:30px!important;border-radius:10px!important;background:#fff0e3!important;color:#b85c0b!important;border:1px solid #ffd3ad;font-size:13px!important;font-weight:900}
+.carrier-search-results .carrier-result-text{display:flex!important;flex:1 1 auto!important;flex-direction:column;gap:3px;min-width:0;overflow:hidden}
+.carrier-search-results .carrier-result-text strong{font-size:13px;font-weight:800;line-height:1.25;color:#173b58;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carrier-search-results .carrier-result-text small{font-size:11px;line-height:1.3;color:#6a7f91;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;overflow-wrap:anywhere}
+.carrier-search-results .carrier-result-select{flex:0 0 25px!important;width:25px;height:25px;display:grid;place-items:center;color:#f58220;background:#fff5ed;border-radius:8px}
+.carrier-search-results .carrier-result-select svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.5}
+@media(max-width:360px){.carrier-search-results .carrier-result-item{gap:7px!important;padding:9px 8px!important}.carrier-search-results .carrier-result-text strong{font-size:12px}.carrier-search-results .carrier-result-text small{font-size:10px}}
+</style>
+</head>
+<body><div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef}=React;
+function Icon({name}){const paths={menu:<path d="M4 6h16M4 12h16M4 18h16"/>,profile:<><circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4.5 3-7 7.5-7s7.5 2.5 7.5 7"/></>,locate:<><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></>,bike:<><circle cx="5" cy="17" r="3"/><circle cx="19" cy="17" r="3"/><path d="m5 17 5-9 4 9h-9m5-9h4l5 9M8 6h3"/></>,car:<><path d="M5 17H3v-5l2-6h14l2 6v5h-2M5 17h14M5 17v2m14-2v2M3 12h18M7 14h.01M17 14h.01"/></>,truck:<><path d="M3 6h11v12H3zM14 10h4l3 4v4h-7M6 18a2 2 0 1 0 4 0m7 0a2 2 0 1 0 4 0"/></>,power:<><path d="M12 2v10M6.3 5.8a9 9 0 1 0 11.4 0"/></>,arrow:<path d="M5 12h14m-6-6 6 6-6 6"/>,logout:<><path d="M10 17l5-5-5-5M15 12H3M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></>,close:<><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></>,check:<path d="m4 12 5 5L20 6"/>,phone:<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-17.7-17.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3a2 2 0 0 1-.6 1.8L7.2 10a16 16 0 0 0 6.8 6.8l1.5-1.8a2 2 0 0 1 1.8-.6l3 .5a2 2 0 0 1 1.7 2Z"/>,navigation:<><path d="m3 11 18-8-8 18-2-8-8-2Z"/></>,info:<><circle cx="12" cy="12" r="10"/><path d="M12 11v6M12 7h.01"/></>,plus:<path d="M12 5v14M5 12h14"/>,search:<><circle cx="10.8" cy="10.8" r="7.2"/><path d="m16.2 16.2 5 5"/></>,list:<><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></>,"map-pin":<><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,"chevron-right":<path d="m9 18 6-6-6-6"/>,package:<><path d="M3 7 12 2l9 5v10l-9 5-9-5Z"/><path d="m3 7 9 5 9-5M12 12v10M7.5 4.5l9 5"/></>,"refresh-cw":<><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 1M4 17l2 1a7 7 0 0 0 12.5-3"/></>};return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>}
+function maskPhone(value){const d=value.replace(/\D/g,'').slice(0,11);if(d.length<=2)return d.length?'('+d:'';if(d.length<=6)return '('+d.slice(0,2)+') '+d.slice(2);const split=d.length>10?7:6;return '('+d.slice(0,2)+') '+d.slice(2,split)+'-'+d.slice(split)}
+function Logo(){return (<svg className="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="Zap Encomendas">
+ <circle cx="500" cy="500" r="486" fill="#faf7f2" stroke="#193b59" strokeWidth="20"/>
+ <path d="M135 462 A370 370 0 0 1 772 265 L826 218 838 413 662 350 719 306 A290 290 0 0 0 208 462 Q172 435 135 462Z" fill="#193b59"/>
+ <circle cx="171" cy="524" r="36" fill="#193b59"/>
+ <path d="M866 558 A370 370 0 0 1 233 742 L183 799 169 613 345 675 292 718 A290 290 0 0 0 795 558 Q835 583 866 558Z" fill="#f58220"/>
+ <circle cx="837" cy="499" r="36" fill="#f58220"/>
+ <path d="M354 421 504 339 651 421 651 603 504 686 354 603Z" fill="#193b59" stroke="#193b59" strokeWidth="8" strokeLinejoin="round"/>
+ <path d="M354 421 504 505 651 421 M504 505V682" fill="none" stroke="#f58220" strokeWidth="19" strokeLinejoin="round"/>
+ <path d="M409 452 561 370 599 390 443 474 443 535 421 514 409 523Z" fill="#f58220"/>
+ <path d="M453 476 605 394" fill="none" stroke="#f58220" strokeWidth="18"/>
+</svg>);}
+function Auth({onLogin,carrierMode=false}){const [mode,setMode]=useState('login'),[name,setName]=useState(''),[phone,setPhone]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[vehicles,setVehicles]=useState([]);const vehicleTypes=[['moto','bike','Moto'],['carro','car','Carro'],['utilitario','truck','Utilitário']];function toggleVehicle(v){setVehicles(prev=>prev.includes(v)?prev.filter(x=>x!==v):[...prev,v])}function submit(e){e.preventDefault();setError('');if(mode==='register'&&name.trim().length<3){setError('Informe seu nome completo.');return}if(phone.replace(/\D/g,'').length<10){setError('Informe um telefone válido com DDD.');return}if(password.length<6){setError('A senha deve ter pelo menos 6 caracteres.');return}if(mode==='register'&&!carrierMode&&vehicles.length===0){setError('Selecione pelo menos um tipo de veículo.');return}onLogin(mode==='register'?name.trim():'Motorista',mode==='register'?vehicles:null)}return <main className="screen"><div className="auth-card"><Logo /><h1>{mode==='login'?'Entrar na Zap Encomendas':'Criar cadastro'}</h1><p className="subtitle">{mode==='login'?(carrierMode?'Acesse sua área de transportadora':'Acesse sua área de motorista'):'Cadastre-se para começar a trabalhar'}</p><form noValidate onSubmit={submit}>{mode==='register'&&<label className="field">Nome completo<input autoComplete="name" value={name} onChange={e=>setName(e.target.value)} placeholder="Digite seu nome completo" required/></label>}<label className="field">Telefone com DDD<input type="tel" inputMode="numeric" maxLength="15" autoComplete="tel" value={phone} onChange={e=>setPhone(maskPhone(e.target.value))} placeholder="(62) 99999-9999" required/></label>{mode==='register'&&!carrierMode&&<div className="vehicle-group"><div className="vehicle-title">Veículos que você utiliza (selecione um ou mais)</div><div className="vehicle-options">{vehicleTypes.map(([id,emoji,label])=><button key={id} type="button" aria-pressed={vehicles.includes(id)} className={'vehicle-option'+(vehicles.includes(id)?' selected':'')} onClick={()=>toggleVehicle(id)}><span className="vehicle-emoji">{emoji}</span>{label}{vehicles.includes(id)?' ✓':''}</button>)}</div><p className="vehicle-hint">Na hora de iniciar a sessão, você escolherá com qual veículo vai trabalhar.</p></div>}<label className="field">Senha<input type="password" autoComplete={mode==='login'?'current-password':'new-password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Digite sua senha" required minLength="6"/></label>{error&&<p role="alert" className="error">{error}</p>}<button className="primary" type="submit">{mode==='login'?'Entrar':'Cadastrar e continuar'}</button><button className="demo-access" type="button" onClick={()=>{setError('');onLogin(carrierMode?'Transportadora':'Motorista',carrierMode?[]:['moto','carro','utilitario'])}}>Entrar no modo demonstração</button></form><div className="switch">{mode==='login'?'Ainda não tem conta?':'Já possui uma conta?'} <button className="link-btn" onClick={()=>{setMode(mode==='login'?'register':'login');setError('')}}>{mode==='login'?'Cadastre-se':'Fazer login'}</button></div><p className="notice">Protótipo: login e cadastro são demonstrativos. Nenhuma conta é criada em servidor e a senha não é armazenada.</p></div></main>}
+function Start({name,vehicles,onStart,onLogout}){
+ const [progress,setProgress]=useState(0),[chosen,setChosen]=useState(vehicles.length===1?vehicles[0]:'');
+ const track=useRef(null),dragging=useRef(false),finished=useRef(false),current=useRef(0);
+ const vehicleTypes=[['moto','bike','Moto'],['carro','car','Carro'],['utilitario','truck','Utilitário']];
+ const setValue=(v)=>{const n=Math.max(0,Math.min(100,v));current.current=n;setProgress(n)};
+ const dragStart=useRef(null);
+ function move(clientX){if(!track.current)return;const r=track.current.getBoundingClientRect();const distance=Math.max(1,r.width-66);setValue(((clientX-r.left-33)/distance)*100)}
+ function begin(e){if(!chosen||finished.current)return;e.preventDefault();dragging.current=true;dragStart.current=e.clientX;try{e.currentTarget.setPointerCapture(e.pointerId)}catch{};move(e.clientX)}
+ function onMove(e){if(dragging.current){e.preventDefault();move(e.clientX)}}
+ function finish(e){if(!dragging.current)return;if(e&&typeof e.clientX==='number')move(e.clientX);dragging.current=false;if(current.current>=82&&chosen&&!finished.current){finished.current=true;setValue(100);onStart(chosen)}else setValue(0)}
+ function selectVehicle(id){setChosen(id);setValue(0)}
+ return <main className="screen start-screen"><div className="start-card"><Logo /><h1>Pronto para trabalhar, {name?.split(" ")[0]}?</h1><p className="subtitle">Selecione o veículo e deslize para ficar online.</p><div className="vehicle-group"><div className="vehicle-title">{vehicles.length>1?'Escolha seu veículo':'Veículo selecionado'}</div>{vehicles.map(id=>{const v=vehicleTypes.find(x=>x[0]===id);return <label key={id} className={'vehicle-choice'+(chosen===id?' selected':'')}><input type="radio" name="activeVehicle" checked={chosen===id} onChange={()=>selectVehicle(id)}/><span className="vehicle-emoji"><Icon name={v?.[1]}/></span><span><strong>{v?.[2]}</strong></span></label>})}{vehicles.length===0&&<p className="error">Nenhum veículo cadastrado. Cadastre pelo menos um veículo para iniciar.</p>}</div><div ref={track} className={'slider-wrap'+(!chosen?' slider-disabled':'')} role="slider" tabIndex={chosen?0:-1} aria-label="Deslize para iniciar sessão" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} onPointerDown={begin} onPointerMove={onMove} onPointerUp={finish} onPointerCancel={()=>{dragging.current=false;setValue(0)}} onLostPointerCapture={()=>{if(dragging.current)finish()}} onKeyDown={e=>{if(!chosen)return;if(e.key==='ArrowRight'){e.preventDefault();setValue(current.current+20)}if(e.key==='ArrowLeft'){e.preventDefault();setValue(current.current-20)}if((e.key==='Enter'||e.key===' ')&&current.current>=88&&!finished.current){e.preventDefault();finished.current=true;onStart(chosen)}}}><div className="slider-fill" style={{width:progress+'%'}}/><div className="slider-label">{progress>=88?'Solte para iniciar':'Deslize para iniciar'}</div><div className="slider-knob" style={{left:`calc(4px + (100% - 66px) * ${progress/100})`}}><Icon name="arrow"/></div></div><button className="link-btn" onClick={onLogout}>Sair da conta</button></div></main>
+}
+function Avatar({name,photo,className='avatar'}){return photo?<img className={className} src={photo} alt="Foto do perfil"/>:<div className={className}>{(name||'M').trim().charAt(0).toUpperCase()}</div>}
+function ProfilePage({profile,onSave,onBack}){
+ const [fullName,setFullName]=useState(profile.name||'');const [phone,setPhone]=useState(profile.phone||'');const [photo,setPhoto]=useState(profile.photo||'');const [message,setMessage]=useState('');const fileRef=useRef(null);
+ function upload(e){const file=e.target.files?.[0];if(!file)return;if(!file.type.startsWith('image/')){setMessage('Escolha uma imagem válida.');return}if(file.size>3*1024*1024){setMessage('A foto deve ter até 3 MB.');return}const reader=new FileReader();reader.onload=()=>{setPhoto(String(reader.result));setMessage('Foto selecionada. Toque em Salvar alterações.');};reader.readAsDataURL(file)}
+ function save(e){e.preventDefault();if(fullName.trim().length<3){setMessage('Informe seu nome completo.');return}if(phone.replace(/\D/g,'').length>0&&phone.replace(/\D/g,'').length<10){setMessage('Informe um telefone com DDD válido.');return}onSave({name:fullName.trim(),phone,photo});setMessage('Perfil salvo neste navegador (demonstração).')}
+ return <main className="profile-page"><header className="profile-bar"><button aria-label="Voltar" onClick={onBack}>‹</button><strong>Meu perfil</strong></header><div className="profile-content"><div className="profile-card" style={{textAlign:'center'}}><Avatar name={fullName} photo={photo} className="profile-avatar"/><h2 style={{marginBottom:5}}>{fullName||'Motorista'}</h2><p className="profile-note">Sua identificação na Zap Encomendas</p><input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{display:'none'}} onChange={upload}/><button type="button" className="upload-label" onClick={()=>fileRef.current?.click()}>📷 Enviar ou alterar foto</button><p className="profile-note">JPG, PNG ou WebP • até 3 MB</p></div><form className="profile-card" onSubmit={save}><h2>Dados pessoais</h2><label className="profile-field">Nome completo<input required value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Seu nome completo"/></label><label className="profile-field">Telefone com DDD<input type="tel" value={phone} onChange={e=>setPhone(maskPhone(e.target.value))} placeholder="(62) 99999-9999" inputMode="numeric"/></label><button className="primary" type="submit">Salvar alterações</button>{message&&<div className="profile-message" role="status">{message}</div>}</form><p className="profile-note" style={{textAlign:'center'}}>Dados armazenados apenas neste navegador para demonstração. A sincronização com o servidor será feita na integração da API.</p></div></main>
+}
+
+// Solicitações fictícias para demonstrar os marcadores. Substituir por dados da API.
+const demoRequests=[
+{lat:-16.6808,lng:-49.2632,place:'Loja Avenida',carrier:'Rota Express',vehicle:'moto',type:'coleta',instructions:'Falar com o vendedor antes da coleta.'},
+{lat:-16.6915,lng:-49.2704,place:'Magazine Central',carrier:'Zap Transportes',vehicle:'carro',type:'entrega',instructions:'Entregar na portaria. Apartamento 1242.'},
+{lat:-16.6750,lng:-49.2785,place:'Casa das Peças',carrier:'Logística Goiás',vehicle:'utilitario',type:'troca',instructions:'Procurar o responsável pela troca no balcão.'},
+{lat:-16.7022,lng:-49.2578,place:'Moda & Cia',carrier:'Rota Express',vehicle:'moto',type:'entrega',instructions:'Entregar na recepção da loja.'},
+{lat:-16.6670,lng:-49.2510,place:'Auto Peças Goiás',carrier:'Zap Transportes',vehicle:'carro',type:'coleta',instructions:'Falar com o vendedor do setor de peças.'},
+{lat:-16.7110,lng:-49.2830,place:'Empório das Flores',carrier:'Logística Goiás',vehicle:'utilitario',type:'coleta',instructions:'Entregar na portaria. Apartamento 1242.'},
+{lat:-16.6890,lng:-49.2440,place:'Papelaria Ideal',carrier:'Rota Express',vehicle:'moto',type:'troca',instructions:'Confirmar a encomenda com o atendente.'},
+{lat:-16.6990,lng:-49.2960,place:'Loja do Celular',carrier:'Zap Transportes',vehicle:'carro',type:'troca',instructions:'Falar com o vendedor antes de retirar.'},
+{lat:-16.6570,lng:-49.2690,place:'Armazém Popular',carrier:'Logística Goiás',vehicle:'utilitario',type:'entrega',instructions:'Entregar na portaria do prédio.'}];
+// Somente pedidos efetivamente cadastrados pela transportadora entram nas chamadas.
+function loadRegisteredRequests(){
+ try{
+  const stored=JSON.parse(localStorage.getItem('zap_carrier_orders')||'[]');
+  if(!Array.isArray(stored))return [];
+  return stored.filter(o=>o&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lng))&&['moto','carro','utilitario'].includes(o.vehicle)&&['coleta','entrega','troca'].includes(o.type)&&o.status!=='Concluído'&&o.status!=='Cancelado').map(o=>({...o,lat:Number(o.lat),lng:Number(o.lng),place:String(o.place||'Local cadastrado'),carrier:String(o.carrier||'Transportadora'),closesAt:o.closesAt||'--:--',requestId:String(o.id)}));
+ }catch{return []}
+}
+demoRequests.forEach((job,i)=>{job.closesAt=['17:30','18:00','19:00'][i%3]});
+const markerSymbols={
+moto:'<circle cx="5" cy="17" r="2.6"/><circle cx="19" cy="17" r="2.6"/><path d="M7.5 17 11 10h3l4.2 7M9 11l-2-3h3m4-2h3l2 3M11 10l-2 7h7"/>',
+carro:'<path d="M4 11 6 6.5A2 2 0 0 1 7.8 5h8.4A2 2 0 0 1 18 6.5l2 4.5v7H4zM4 11h16M7 15h2m6 0h2M6 18v2m12-2v2"/>',
+utilitario:'<path d="M3 7h11v11H3zM14 10h4l3 4v4h-7M3 18h2m6 0h5m4 0h1"/><circle cx="8" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>'
+};
+const operationSymbols={
+coleta:'<path d="M12 19V5m-6 6 6-6 6 6"/>',
+entrega:'<path d="M12 5v14m-6-6 6 6 6-6"/>',
+troca:'<path d="M4 8h16m-4-4 4 4-4 4M20 16H4m4-4-4 4 4 4"/>'
+};
+function distanceText(origin,item){
+if(!origin)return 'Ative o GPS';
+const rad=Math.PI/180, dLat=(item.lat-origin[0])*rad,dLng=(item.lng-origin[1])*rad;
+const h=Math.sin(dLat/2)**2+Math.cos(origin[0]*rad)*Math.cos(item.lat*rad)*Math.sin(dLng/2)**2;
+const km=6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+return km<1?Math.round(km*1000)+' m':km.toFixed(1).replace('.',',')+' km';
+}
+function markerHtml(item,origin){
+const label={coleta:'Coleta',entrega:'Entrega',troca:'Troca'}[item.type];
+const initials=item.carrier.split(' ').map(x=>x[0]).slice(0,2).join('');
+return `<div class="job-pin job-${item.type} job-vehicle-${item.vehicle}">
+<div class="job-marker-row">
+<div class="job-symbol-wrap"><div class="job-symbol"><svg viewBox="0 0 24 24">${markerSymbols[item.vehicle]}</svg></div><div class="job-arrow"><svg viewBox="0 0 24 24"><path d="m5 8 7 9 7-9"/></svg></div><div class="job-shadow"></div></div>
+<div class="job-details"><div class="job-topline"><div class="job-place">${item.place}</div><span class="job-closing">Fecha ${item.closesAt}*</span></div>
+<div class="job-carrier"><span class="job-avatar">${initials}</span><span>${item.carrier}</span></div>
+<div class="job-badges"><span class="job-operation"><svg viewBox="0 0 24 24">${operationSymbols[item.type]}</svg>${label}</span><span class="job-badge job-type"><svg viewBox="0 0 24 24">${markerSymbols[item.vehicle]}</svg>${{moto:'Moto',carro:'Carro',utilitario:'Utilitário'}[item.vehicle]}</span><span class="job-badge job-distance"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6-7-12a7 7 0 1 1 14 0c0 6-7 12-7 12Z"/><circle cx="12" cy="9" r="2"/></svg>${distanceText(origin,item)}</span></div>
+</div></div></div>`;
+}
+function MapView({profile,activeVehicle,onEnd,onLogout,onProfile}){const mapRef=useRef(null),markerRef=useRef(null),jobsRef=useRef([]),refreshRef=useRef(null);
+const [navProvider,setNavProvider]=useState(()=>{try{return localStorage.getItem('zap_navigation_provider')==='waze'?'waze':'maps'}catch{return 'maps'}});
+function chooseNavProvider(provider){setNavProvider(provider);try{localStorage.setItem('zap_navigation_provider',provider)}catch{}}
+const [navMenuOpen,setNavMenuOpen]=useState(false);
+function navigateToJob(job){const coords=job.lat+','+job.lng;const url=navProvider==='waze'?'https://waze.com/ul?ll='+encodeURIComponent(coords)+'&navigate=yes':'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(coords);const win=window.open(url,'_blank','noopener,noreferrer');if(!win)window.location.href=url;}
+const [connectionNotice,setConnectionNotice]=useState(null);
+const [vehicleNotice,setVehicleNotice]=useState(true);const [cameraJob,setCameraJob]=useState(null);const [cameraImages,setCameraImages]=useState([]);const [cameraPreview,setCameraPreview]=useState(-1);const [cameraError,setCameraError]=useState('');const [cameraFacing,setCameraFacing]=useState('environment');const cameraVideoRef=useRef(null);const cameraStreamRef=useRef(null);const cameraFileRef=useRef(null);const [selectedJob,setSelectedJob]=useState(null);const routeLayerRef=useRef(null),routeTargetRef=useRef(null),routeRequestRef=useRef(0);const [routeStatus,setRouteStatus]=useState('');const [gpsPoint,setGpsPoint]=useState(null);const gpsWatchRef=useRef(null),gpsAccuracyRef=useRef(null),gpsFirstFixRef=useRef(true),gpsPointRef=useRef(null);const [gpsStatus,setGpsStatus]=useState("Aguardando GPS");const [completedJobs,setCompletedJobs]=useState({});const completedRef=useRef({});const [completedDetail,setCompletedDetail]=useState(null);
+useEffect(()=>{const t=setTimeout(()=>setVehicleNotice(false),4500);return()=>clearTimeout(t)},[]);
+useEffect(()=>{
+let timer;
+function showStatus(online){
+setConnectionNotice(online?'online':'offline');
+clearTimeout(timer);
+timer=setTimeout(()=>setConnectionNotice(null),online?3500:5000);
+}
+function online(){showStatus(true)}
+function offline(){showStatus(false)}
+window.addEventListener('online',online);
+window.addEventListener('offline',offline);
+if(!navigator.onLine)showStatus(false);
+return()=>{clearTimeout(timer);window.removeEventListener('online',online);window.removeEventListener('offline',offline)}
+},[]);
+useEffect(()=>{if(!cameraJob)return;let disposed=false;setCameraError('');if(!navigator.mediaDevices?.getUserMedia){setCameraError('Câmera não disponível neste visualizador. Abra o aplicativo em HTTPS ou localhost, em um navegador compatível.');return;}navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:cameraFacing}}}).then(stream=>{if(disposed){stream.getTracks().forEach(t=>t.stop());return}cameraStreamRef.current=stream;if(cameraVideoRef.current){cameraVideoRef.current.srcObject=stream;cameraVideoRef.current.play().catch(()=>{});}}).catch(()=>{if(!disposed)setCameraError('Não foi possível abrir a câmera. Verifique a permissão e use HTTPS ou localhost.');});return()=>{disposed=true;if(cameraStreamRef.current){cameraStreamRef.current.getTracks().forEach(t=>t.stop());cameraStreamRef.current=null}}},[cameraJob,cameraFacing]);
+function closeCamera(){setCameraJob(null);setCameraImages([]);setCameraPreview(-1);setCameraError('')}
+function addCameraImage(src){setCameraImages(prev=>[...prev,src]);setCameraError('')}
+function captureCamera(){const v=cameraVideoRef.current;if(!v?.videoWidth){setCameraError('Aguarde a câmera iniciar para fotografar.');return}const canvas=document.createElement('canvas');const scale=Math.min(1,1280/v.videoWidth);canvas.width=Math.round(v.videoWidth*scale);canvas.height=Math.round(v.videoHeight*scale);canvas.getContext('2d').drawImage(v,0,0,canvas.width,canvas.height);addCameraImage(canvas.toDataURL('image/jpeg',.82))}
+function loadCameraFile(e){const files=Array.from(e.target.files||[]);if(!files.length)return;const valid=files.filter(file=>file.type.startsWith('image/')&&file.size<=15*1024*1024);if(valid.length!==files.length)setCameraError('Alguns arquivos não são imagens ou ultrapassam 15 MB.');valid.forEach(file=>{const reader=new FileReader();reader.onload=()=>addCameraImage(String(reader.result));reader.onerror=()=>setCameraError('Não foi possível carregar uma imagem.');reader.readAsDataURL(file)});e.target.value=''}
+function confirmCameraAction(){if(cameraJob.type!=='entrega'&&!cameraImages.length){setCameraError('Para coleta e troca, adicione pelo menos uma foto antes de confirmar.');return}const action=({coleta:'Coleta',entrega:'Entrega',troca:'Troca'})[cameraJob.type];const record={action,driver:profile.name||'Motorista',time:new Date().toLocaleString('pt-BR'),place:cameraJob.place,carrier:cameraJob.carrier,type:cameraJob.type,vehicle:cameraJob.vehicle,closesAt:cameraJob.closesAt,photoCount:cameraImages.length};const next={...completedRef.current,[cameraJob.place]:record};completedRef.current=next;setCompletedJobs(next);refreshRef.current?.();setToast(action+' registrada'+(cameraImages.length?' com '+cameraImages.length+' foto(s)':' sem foto')+'. Marcador substituído por X.');closeCamera()}
+useEffect(()=>{if(!selectedJob&&!completedDetail)return;const onOutsideClick=(event)=>{const target=event.target;if(!(target instanceof Element))return;if(target.closest('.job-modal'))return;if(target.closest('.leaflet-marker-icon'))return;setSelectedJob(null);setCompletedDetail(null);setNavMenuOpen(false)};document.addEventListener('click',onOutsideClick);return()=>document.removeEventListener('click',onOutsideClick)},[selectedJob,completedDetail]);
+const [registeredRequests,setRegisteredRequests]=useState(loadRegisteredRequests);
+useEffect(()=>{const sync=e=>{if(!e||e.key==='zap_carrier_orders')setRegisteredRequests(loadRegisteredRequests())};window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync)},[]);
+const [incomingCall,setIncomingCall]=useState(null);const [callExpanded,setCallExpanded]=useState(false);const calledPlacesRef=useRef(new Set());const acceptedPlacesRef=useRef(new Set());const callAudioRef=useRef(null);
+function stopCallSound(){if(callAudioRef.current){clearInterval(callAudioRef.current.timer);try{callAudioRef.current.ctx.close()}catch{}callAudioRef.current=null}}
+function playCallSound(){stopCallSound();try{const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;const ctx=new AudioContext();function beep(){if(ctx.state==='closed')return;const now=ctx.currentTime;[0,.22].forEach(offset=>{const oscillator=ctx.createOscillator(),gain=ctx.createGain();oscillator.type='sine';oscillator.frequency.value=740;gain.gain.setValueAtTime(.0001,now+offset);gain.gain.exponentialRampToValueAtTime(.12,now+offset+.025);gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.17);oscillator.connect(gain);gain.connect(ctx.destination);oscillator.start(now+offset);oscillator.stop(now+offset+.18)})}ctx.resume().then(beep).catch(()=>{});callAudioRef.current={ctx,timer:setInterval(beep,1700)}}catch{}}
+function testIncomingCall(){
+const rank={moto:1,carro:2,utilitario:3};
+const eligible=registeredRequests.filter(job=>rank[job.vehicle]<=rank[activeVehicle]&&!completedRef.current[job.place]&&!calledPlacesRef.current.has(job.requestId));
+if(!eligible.length){setToast('Não há novos pedidos cadastrados compatíveis com seu veículo.');return}
+const next=eligible[0];calledPlacesRef.current.add(next.requestId);
+setSelectedJob(null);setCompletedDetail(null);setIncomingCall(next);setCallExpanded(false);playCallSound();
+}
+function dismissIncomingCall(accepted){
+const job=incomingCall;stopCallSound();setIncomingCall(null);setCallExpanded(false);
+if(accepted&&job){acceptedPlacesRef.current.add(job.place);refreshRef.current?.();const map=mapRef.current;if(map)map.flyTo([job.lat,job.lng],Math.max(15,map.getZoom()),{duration:.7});setSelectedJob(job);showRouteToJob(job);setToast('Chamada aceita. O local agora aparece no mapa.');}
+else if(job){clearRoute();setToast('Chamada recusada. O local não foi adicionado ao mapa.');}
+}
+useEffect(()=>()=>stopCallSound(),[]);
+const [dialog,setDialog]=useState(''),[toast,setToast]=useState('');const swipeStart=useRef(null);const closeMenu=()=>setDialog('');function swipeBegin(e){swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY}}function swipeEnd(e){if(!swipeStart.current)return;const dx=e.changedTouches[0].clientX-swipeStart.current.x,dy=e.changedTouches[0].clientY-swipeStart.current.y;swipeStart.current=null;if(dx < -65 && Math.abs(dx)>Math.abs(dy)*1.2)closeMenu()}useEffect(()=>{if(!window.L)return;const map=L.map('map',{zoomControl:false}).setView([-16.6869,-49.2648],13);mapRef.current=map;const baseTiles=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
+ maxZoom:19,attribution:'Tiles &copy; Esri — Source: Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS user community',
+ errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
+});
+baseTiles.addTo(map);
+let tileFailures=0;
+baseTiles.on('tileerror',()=>{tileFailures++;if(tileFailures===4){const warning=document.createElement('div');warning.className='zap-map-warning';warning.textContent='O serviço de mapas não está disponível nesta conexão. Configure um provedor de mapas autorizado para uso em produção.';map.getContainer().appendChild(warning)}});
+const jobsLayer=L.layerGroup().addTo(map);
+const jobs=registeredRequests.map(item=>{const icon=L.divIcon({className:'job-div-icon',html:markerHtml(item,null),iconSize:[399,154],iconAnchor:[29,154]});return {...item,marker:L.marker([item.lat,item.lng],{icon,title:item.place+' - '+item.type})}});
+jobs.forEach(job=>{job.marker.off('click');job.marker.on('click',()=>{setSelectedJob(job);showRouteToJob(job)});job.marker.unbindPopup()});jobsRef.current=jobs;
+function renderJobClusters(){
+jobsLayer.clearLayers();
+// Hierarquia de capacidade: moto < carro < utilitário.
+const vehicleLevel={moto:1,carro:2,utilitario:3};
+const maxLevel=vehicleLevel[activeVehicle]||0;
+const visibleJobs=jobs.filter(job=>(vehicleLevel[job.vehicle]||99)<=maxLevel&&acceptedPlacesRef.current.has(job.place));
+const zoom=map.getZoom();
+const radius=zoom>=16?0:zoom>=14?105:zoom>=12?155:190;
+const groups=[];
+visibleJobs.filter(job=>!completedRef.current[job.place]).forEach(job=>{
+const pt=map.project([job.lat,job.lng],zoom);
+let group=radius?groups.find(g=>Math.hypot(g.x-pt.x,g.y-pt.y)<radius):null;
+if(group){const n=group.items.length;group.x=(group.x*n+pt.x)/(n+1);group.y=(group.y*n+pt.y)/(n+1);group.items.push(job)}
+else groups.push({x:pt.x,y:pt.y,items:[job]});
+});
+visibleJobs.filter(job=>completedRef.current[job.place]).forEach(job=>{const done=completedRef.current[job.place];const xIcon=L.divIcon({className:'zap-completed-icon',html:'<div class="zap-completed-x" aria-label="Serviço concluído">×</div>',iconSize:[36,36],iconAnchor:[18,18]});const xMarker=L.marker([job.lat,job.lng],{icon:xIcon,title:'Serviço concluído: '+job.place});xMarker.on('click',()=>setCompletedDetail({...done,lat:job.lat,lng:job.lng}));jobsLayer.addLayer(xMarker)});
+groups.forEach(g=>{
+if(g.items.length===1){jobsLayer.addLayer(g.items[0].marker);return}
+const latlng=map.unproject([g.x,g.y],zoom);
+const count=g.items.length;
+const clusterIcon=L.divIcon({className:'zap-cluster-wrap',html:'<div class="zap-cluster"><span>'+count+'</span><small>serviços</small></div>',iconSize:[66,66],iconAnchor:[33,33]});
+const cluster=L.marker(latlng,{icon:clusterIcon,zIndexOffset:900});
+cluster.on('click',()=>{const bounds=L.latLngBounds(g.items.map(x=>[x.lat,x.lng]));map.fitBounds(bounds.pad(.35),{maxZoom:Math.min(18,map.getZoom()+3),animate:true})});
+jobsLayer.addLayer(cluster);
+});
+}
+refreshRef.current=renderJobClusters;
+map.on('zoomend moveend',renderJobClusters);
+renderJobClusters();setTimeout(()=>map.invalidateSize(),150);return()=>{map.remove();mapRef.current=null}},[registeredRequests,activeVehicle]);
+ async function showRouteToJob(job){
+  routeTargetRef.current=job;
+  const requestId=++routeRequestRef.current;
+  const map=mapRef.current;
+  if(!map||!window.L)return;
+  if(routeLayerRef.current){map.removeLayer(routeLayerRef.current);routeLayerRef.current=null}
+  const start=gpsPointRef.current;
+  if(!start){setRouteStatus('Aguardando localização do motorista para calcular a rota.');map.flyTo([job.lat,job.lng],15,{duration:.6});map.panBy([0,Math.round(window.innerHeight*.18)],{animate:true});startDriverGps();return}
+  setRouteStatus('Calculando rota pelas ruas...');
+  try{
+   const endpoint='https://router.project-osrm.org/route/v1/driving/'+start[1]+','+start[0]+';'+job.lng+','+job.lat+'?overview=full&geometries=geojson&steps=false';
+   const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),12000);
+   let response;
+   try{response=await fetch(endpoint,{signal:controller.signal})}finally{clearTimeout(timeout)}
+   if(!response.ok)throw Error('Serviço de rotas indisponível');
+   const data=await response.json();
+   if(requestId!==routeRequestRef.current)return;
+   const route=data.routes&&data.routes[0];
+   if(!route||!route.geometry||!route.geometry.coordinates)throw Error('Rota não encontrada');
+   const coords=route.geometry.coordinates.map(c=>[c[1],c[0]]);
+   routeLayerRef.current=L.polyline(coords,{color:'#F58220',weight:6,opacity:.94,lineCap:'round',lineJoin:'round'}).addTo(map);
+   map.fitBounds(routeLayerRef.current.getBounds(),{paddingTopLeft:[38,90],paddingBottomRight:[38,Math.round(window.innerHeight*.55)],maxZoom:17,animate:true});
+   const km=(route.distance/1000).toLocaleString('pt-BR',{maximumFractionDigits:1});
+   const mins=Math.max(1,Math.round(route.duration/60));
+   setRouteStatus('Rota: '+km+' km · aproximadamente '+mins+' min (estimativa)');
+  }catch(error){if(requestId!==routeRequestRef.current)return;setRouteStatus('Não foi possível calcular a rota pelas ruas. Use Navegar para abrir o aplicativo de mapas.');}
+ }
+ function clearRoute(){routeTargetRef.current=null;routeRequestRef.current++;if(routeLayerRef.current&&mapRef.current){mapRef.current.removeLayer(routeLayerRef.current);routeLayerRef.current=null}setRouteStatus('')}
+ function updateDriverPosition(position){
+ const map=mapRef.current;if(!map || !window.L)return;
+ const point=[position.coords.latitude,position.coords.longitude];
+ if(!point.every(Number.isFinite))return;
+ gpsPointRef.current=point;setGpsPoint(point);setGpsStatus('GPS ativo');
+ if(!markerRef.current){
+ const icon=L.divIcon({className:'zap-driver-location-icon',html:'<div class="zap-driver-location-pulse"><div class="zap-driver-location-dot"></div></div>',iconSize:[44,44],iconAnchor:[22,22]});
+ markerRef.current=L.marker(point,{icon,zIndexOffset:1200,title:'Localização do motorista'}).addTo(map).bindPopup('Sua localização atual');
+ }else markerRef.current.setLatLng(point);
+ const accuracy=Math.max(0,Number(position.coords.accuracy)||0);
+ if(!gpsAccuracyRef.current)gpsAccuracyRef.current=L.circle(point,{radius:accuracy,color:'#1878e9',weight:1,opacity:.35,fillColor:'#1878e9',fillOpacity:.09,interactive:false}).addTo(map);
+ else gpsAccuracyRef.current.setLatLng(point).setRadius(accuracy);
+ jobsRef.current.forEach(job=>job.marker.setIcon(L.divIcon({className:'job-div-icon',html:markerHtml(job,point),iconSize:[399,154],iconAnchor:[29,154]})));
+ if(refreshRef.current)refreshRef.current();
+ if(gpsFirstFixRef.current){gpsFirstFixRef.current=false;map.invalidateSize();map.flyTo(point,17,{duration:.8});setToast('Mapa centralizado na localização do motorista')}
+ }
+ function gpsError(err){setGpsStatus('GPS indisponível');const message=err?.code===1?'Permita o acesso à localização nas configurações do navegador.':err?.code===3?'GPS demorou para responder. Tente novamente.':'Não foi possível obter sua localização.';setToast(message)}
+ function startDriverGps(){
+ if(!navigator.geolocation){setGpsStatus('GPS indisponível');setToast('GPS não disponível neste navegador');return}
+ if(gpsWatchRef.current!==null)return;
+ setGpsStatus('Buscando GPS');
+ try{navigator.geolocation.getCurrentPosition(updateDriverPosition,err=>{if(!gpsPointRef.current)gpsError(err)},{enableHighAccuracy:true,maximumAge:10000,timeout:15000});gpsWatchRef.current=navigator.geolocation.watchPosition(updateDriverPosition,err=>{if(!gpsPointRef.current)gpsError(err)},{enableHighAccuracy:true,maximumAge:3000,timeout:20000})}
+ catch(e){setGpsStatus('GPS indisponível');setToast('Não foi possível iniciar o GPS')}
+ }
+ function locate(){const map=mapRef.current;if(gpsPointRef.current&&map){map.flyTo(gpsPointRef.current,17,{duration:.6});return}gpsFirstFixRef.current=true;startDriverGps();setToast('Buscando localização do motorista...')}
+ useEffect(()=>{const timer=setTimeout(startDriverGps,350);return()=>{clearTimeout(timer);if(gpsWatchRef.current!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatchRef.current);gpsWatchRef.current=null}}},[]);
+ useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),3500);return()=>clearTimeout(t)},[toast]);
+ return <div className="map-page"><div id="map" className="map-canvas"/><div className="top-notices" aria-live="polite">
+{connectionNotice&&<div className={'notice-pill '+(connectionNotice==='online'?'notice-online':'notice-offline')}><Icon name={connectionNotice==='online'?'check':'close'}/><span>{connectionNotice==='online'?'Conexão restabelecida • Online':'Sem internet • Offline'}</span></div>}
+{vehicleNotice&&<div className="notice-pill notice-vehicle"><Icon name={activeVehicle==='moto'?'bike':activeVehicle==='carro'?'car':'truck'}/><span>{activeVehicle==='moto'?'Moto':activeVehicle==='carro'?'Carro':'Utilitário'} • Sessão ativa</span></div>}
+</div>{registeredRequests.some(job=>({moto:1,carro:2,utilitario:3})[job.vehicle]<=({moto:1,carro:2,utilitario:3})[activeVehicle]&&!calledPlacesRef.current.has(job.requestId)&&!completedRef.current[job.place])&&<button type="button" className="call-test" onClick={testIncomingCall} aria-label="Simular nova chamada"><Icon name="phone"/> Testar chamada</button>}{incomingCall&&!callExpanded&&<div className="call-banner" role="alert" aria-label="Nova chamada de serviço"><div className="call-bell"><Icon name="phone"/></div><div className="call-banner-main"><small>NOVA CHAMADA • {({coleta:'COLETA',entrega:'ENTREGA',troca:'TROCA'})[incomingCall.type]}</small><strong>{incomingCall.place}</strong><span>{incomingCall.carrier} · {({moto:'Moto',carro:'Carro',utilitario:'Utilitário'})[incomingCall.vehicle]}</span></div><button type="button" onClick={()=>{stopCallSound();setCallExpanded(true);showRouteToJob(incomingCall)}}>Visualizar</button></div>}{incomingCall&&callExpanded&&<div className="call-detail-overlay" role="presentation"><section className="call-detail" role="dialog" aria-modal="true" aria-label="Detalhes da nova chamada"><button type="button" className="call-detail-close" aria-label="Voltar à chamada" onClick={()=>{setCallExpanded(false);clearRoute()}}>×</button><span className="job-modal-kicker">NOVA SOLICITAÇÃO DE SERVIÇO</span><h2>{incomingCall.place}</h2><p>{incomingCall.carrier}</p><div className="call-detail-grid"><div><small>Operação</small><strong>{({coleta:'Coleta',entrega:'Entrega',troca:'Troca'})[incomingCall.type]}</strong></div><div><small>Veículo</small><strong>{({moto:'Moto',carro:'Carro',utilitario:'Utilitário'})[incomingCall.vehicle]}</strong></div><div><small>Distância</small><strong>{distanceText(gpsPoint,incomingCall)}</strong></div><div><small>Horário limite</small><strong>{incomingCall.closesAt||'Não informado'}</strong></div></div>{routeStatus&&<div className="call-route-status" role="status"><Icon name="map"/> {routeStatus}</div>}<div className="call-instruction"><strong>Observações para o motorista</strong><p style={{margin:'5px 0 0'}}>{incomingCall.instructions||'Sem instruções adicionais.'}</p></div><div className="call-detail-actions"><button type="button" className="call-reject" onClick={()=>dismissIncomingCall(false)}>Recusar</button><button type="button" className="call-accept" onClick={()=>dismissIncomingCall(true)}>Aceitar</button></div></section></div>}<button className="control top-left" aria-label="Abrir menu" onClick={()=>setDialog('menu')}><Icon name="menu"/></button><button className="control top-right" aria-label="Meu perfil" onClick={onProfile}>{profile.photo?<img src={profile.photo} alt="Perfil" style={{width:42,height:42,objectFit:'cover',borderRadius:5}}/>:<Icon name="profile"/>}</button><button className="control bottom-right second" aria-label="Centralizar na localização do motorista" title={gpsStatus} onClick={locate}><Icon name="locate"/></button><button className="control bottom-right danger" aria-label="Encerrar sessão" onClick={()=>setDialog('end')}><Icon name="close"/></button>{toast&&<div role="status" className="toast">{toast}</div>}
+ {selectedJob&&<div className="job-modal-backdrop" onClick={()=>setSelectedJob(null)}><section className="job-modal" role="dialog" aria-modal="false" aria-label={'Detalhes de '+selectedJob.place} onClick={e=>e.stopPropagation()}><div className="job-modal-handle"/><div className="job-modal-head"><div><span className="job-modal-kicker">DETALHES DO SERVIÇO</span><h2>{selectedJob.place}</h2><p>{selectedJob.carrier}</p></div><button className="job-modal-close" aria-label="Fechar detalhes" onClick={()=>setSelectedJob(null)}><Icon name="close"/></button></div><div className="job-modal-info"><div><small>Serviço</small><strong>{({coleta:'Coleta',entrega:'Entrega',troca:'Troca'})[selectedJob.type]}</strong></div><div><small>Veículo</small><strong>{({moto:'Moto',carro:'Carro',utilitario:'Utilitário'})[selectedJob.vehicle]}</strong></div><div><small>Distância</small><strong>{distanceText(gpsPoint,selectedJob)==='Distância indisponível'?'Ative o GPS':distanceText(gpsPoint,selectedJob)}</strong></div><div><small>Horário limite</small><strong>{selectedJob.closesAt}*</strong></div></div><div className="job-modal-instructions"><span className="job-modal-instructions-title"><Icon name="info"/> Instruções para o motorista</span><p>{selectedJob.instructions || "Nenhuma instrução adicional informada."}</p></div><p className="job-modal-hint">* Horário ilustrativo. Os dados são demonstrativos.</p>{completedJobs[selectedJob.place]&&<p className="job-modal-done">Ação registrada nesta demonstração: {completedJobs[selectedJob.place]}.</p>}{routeStatus&&<div className="zap-route-status" role="status">{routeStatus}<button type="button" onClick={clearRoute} aria-label="Remover rota">×</button></div>}<div className="job-modal-actions"><button className="job-action-primary" onClick={()=>{setCameraImages([]);setCameraPreview(-1);setCameraError('');setCameraFacing('environment');setCameraJob(selectedJob);setSelectedJob(null)}}><Icon name="check"/>{({coleta:'Coletar',entrega:'Entregar',troca:'Trocar'})[selectedJob.type]}</button><div className="job-nav-option"><button type="button" className="job-action-nav" title={'Navegar com '+(navProvider==='waze'?'Waze':'Google Maps')} onClick={()=>navigateToJob(selectedJob)}><Icon name="navigation"/>Navegar</button><button type="button" className="job-nav-arrow" aria-label="Escolher aplicativo de navegação" aria-expanded={navMenuOpen} onClick={()=>setNavMenuOpen(v=>!v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>{navMenuOpen&&<div className="job-nav-menu" role="menu" aria-label="Aplicativo de navegação"><button type="button" role="menuitemradio" aria-checked={navProvider==='maps'} onClick={()=>{chooseNavProvider('maps');setNavMenuOpen(false)}}>Google Maps {navProvider==='maps'?'✓':''}</button><button type="button" role="menuitemradio" aria-checked={navProvider==='waze'} onClick={()=>{chooseNavProvider('waze');setNavMenuOpen(false)}}>Waze {navProvider==='waze'?'✓':''}</button></div>}</div><button className="job-action-contact" onClick={()=>setToast('Telefone do cliente não disponível nos dados de demonstração.')}><Icon name="phone"/>Falar com cliente</button></div></section></div>}
+ {completedDetail&&<div className="job-modal-backdrop" onClick={()=>setCompletedDetail(null)}><section className="job-modal" role="dialog" aria-modal="false" aria-label="Registro do serviço" onClick={e=>e.stopPropagation()}><div className="job-modal-handle"/><div className="job-modal-head"><div><span className="job-modal-kicker">SERVIÇO CONCLUÍDO</span><h2>{completedDetail.place}</h2><p>{completedDetail.carrier}</p></div><button className="job-modal-close" aria-label="Fechar" onClick={()=>setCompletedDetail(null)}><Icon name="close"/></button></div><div className="job-modal-info"><div><small>Operação</small><strong>{completedDetail.action}</strong></div><div><small>Motorista</small><strong>{completedDetail.driver}</strong></div><div><small>Veículo</small><strong>{({moto:'Moto',carro:'Carro',utilitario:'Utilitário'})[completedDetail.vehicle]}</strong></div><div><small>Registrado em</small><strong>{completedDetail.time}</strong></div></div><p className="job-modal-hint">Registro demonstrativo neste dispositivo. A imagem não foi enviada ao servidor.</p><button className="job-action-nav" style={{width:'100%',padding:14,borderRadius:12}} onClick={()=>setCompletedDetail(null)}>Fechar</button></section></div>}
+  {cameraJob&&<div className="zap-camera-screen" role="dialog" aria-modal="true" aria-label="Câmera de comprovação"><video className="zap-camera-video" ref={cameraVideoRef} autoPlay muted playsInline/>{cameraError&&!cameraImages.length&&<div className="zap-camera-unavailable"><div><b>Câmera indisponível</b>{cameraError}</div></div>}<div className="zap-camera-shade"/><div className="zap-camera-top"><button className="zap-camera-close" aria-label="Fechar câmera" onClick={closeCamera}><Icon name="close"/></button><div className="zap-camera-title"><strong>{cameraJob.place}</strong><small>{cameraJob.carrier} · {({coleta:'Coleta',entrega:'Entrega',troca:'Troca'})[cameraJob.type]}</small></div><button className="zap-camera-switch" aria-label="Alternar câmera" onClick={()=>setCameraFacing(v=>v==='environment'?'user':'environment')}><Icon name="camera"/></button></div><div className="zap-camera-float"><div><span>SERVIÇO</span><b>{({coleta:'Coleta',entrega:'Entrega',troca:'Troca'})[cameraJob.type]}</b></div><div><span>VEÍCULO</span><b>{({moto:'Moto',carro:'Carro',utilitario:'Utilitário'})[cameraJob.vehicle]}</b></div><div><span>DISTÂNCIA</span><b>{distanceText(gpsPoint,cameraJob)==='Distância indisponível'?'Ative o GPS':distanceText(gpsPoint,cameraJob)}</b></div><div><span>HORÁRIO LIMITE</span><b>{cameraJob.closesAt}*</b></div></div><div className="zap-camera-bottom"><div className="zap-camera-note">{cameraImages.length?`${cameraImages.length} foto(s) adicionada(s) · Toque para ampliar`:cameraJob.type==='entrega'?'Foto opcional para entrega':'Foto obrigatória para coleta e troca'}</div>{cameraImages.length>0&&<div className="zap-photo-strip" aria-label="Fotos do serviço">{cameraImages.map((src,i)=><div className="zap-photo-thumb" key={i}><button type="button" onClick={()=>setCameraPreview(i)} aria-label={`Visualizar foto ${i+1}`}><img src={src} alt={`Foto ${i+1}`}/></button><button className="zap-photo-remove" type="button" aria-label={`Excluir foto ${i+1}`} onClick={()=>setCameraImages(prev=>prev.filter((_,j)=>j!==i))}>×</button></div>)}</div>}<input ref={cameraFileRef} type="file" accept="image/*" multiple className="zap-camera-file-input" onChange={loadCameraFile}/><div className="zap-camera-controls"><button className="zap-camera-gallery" aria-label="Buscar imagens no dispositivo" title="Buscar arquivos" onClick={()=>cameraFileRef.current?.click()}><Icon name="image"/><span>Arquivo</span></button><button className="zap-camera-shutter" aria-label="Tirar foto" title="Tirar foto" onClick={captureCamera} disabled={!!cameraError}/><button className="zap-camera-gallery zap-camera-confirm" aria-label="Confirmar serviço" onClick={confirmCameraAction} title={cameraJob.type!=='entrega'&&!cameraImages.length?'Adicione uma foto para confirmar':'Confirmar serviço'}><Icon name="check"/><span>{({coleta:'Coletar',entrega:'Entregar',troca:'Trocar'})[cameraJob.type]}</span></button></div>{cameraError&&<p className="zap-camera-error">{cameraError}</p>}</div>{cameraPreview>=0&&cameraImages[cameraPreview]&&<div className="zap-photo-viewer" role="dialog" aria-label="Visualizar fotografia"><button type="button" onClick={()=>setCameraPreview(-1)} aria-label="Voltar para câmera">×</button><img src={cameraImages[cameraPreview]} alt={`Foto ${cameraPreview+1} ampliada`}/><span>Foto {cameraPreview+1} de {cameraImages.length}</span></div>}</div>}
+ {dialog==='menu'&&<div className="drawer-backdrop" onClick={closeMenu}><aside className="drawer" onTouchStart={swipeBegin} onTouchEnd={swipeEnd} onClick={e=>e.stopPropagation()}><div className="drawer-head"><button type="button" className="drawer-close" aria-label="Fechar menu" onClick={e=>{e.preventDefault();e.stopPropagation();closeMenu()}}><Icon name="close"/></button><div style={{fontSize:12,opacity:.8,letterSpacing:1,fontWeight:700}}>ZAP ENCOMENDAS</div><div className="drawer-person"><Avatar name={profile.name} photo={profile.photo}/><div><strong style={{fontSize:17}}>{profile.name}</strong><div style={{fontSize:12,opacity:.8,marginTop:5}}>Sessão em andamento</div></div></div></div><div className="drawer-label">NAVEGAÇÃO</div><button className="drawer-item" onClick={()=>setDialog('')}><span className="glyph"><Icon name="locate"/></span> Mapa / Início</button><button className="drawer-item" onClick={onProfile}><span className="glyph"><Icon name="profile"/></span> Meu perfil</button><div className="drawer-label">SESSÃO</div><button className="drawer-item" onClick={()=>setDialog('end')}><span className="glyph"><Icon name="power"/></span> Encerrar sessão</button><div className="drawer-footer"><button className="drawer-item" onClick={()=>setDialog('logout')}><span className="glyph"><Icon name="logout"/></span> Sair da conta</button><div className="profile-note" style={{padding:'6px 23px'}}>Zap Encomendas • Motorista</div></div></aside></div>}
+ {(dialog==='end'||dialog==='logout')&&<div className="overlay" onClick={()=>setDialog('')}><div className="dialog" onClick={e=>e.stopPropagation()}><h2>{dialog==='end'?'Encerrar sessão?':'Sair da conta?'}</h2><p>{dialog==='end'?'Você ficará indisponível e voltará à tela de iniciar sessão. O mapa será fechado.':'Você voltará para a página de login.'}</p><div className="actions"><button className="cancel" onClick={()=>setDialog('')}>Cancelar</button><button className="confirm" onClick={dialog==='end'?onEnd:onLogout}>Confirmar</button></div></div></div>}</div>
+}
+
+function RoleChoice({onChoose}){return <main className="role-screen"><section className="role-panel"><Logo/><h1>Bem-vindo à Zap Encomendas</h1><p>Escolha como deseja utilizar a plataforma.</p><button className="role-choice" onClick={()=>onChoose('transportadora')}><Icon name="truck"/><span><strong>Transportadora</strong><small>Cadastre e acompanhe pedidos de coleta, entrega e troca</small></span><Icon name="arrow"/></button><button className="role-choice" onClick={()=>onChoose('motorista')}><Icon name="car"/><span><strong>Motorista</strong><small>Receba chamadas, aceite pedidos e execute serviços</small></span><Icon name="arrow"/></button><p style={{fontSize:12,marginTop:22}}>Ambiente demonstrativo · Selecione seu perfil para continuar</p></section></main>}
+function CarrierDashboard({onBack}){
+ const mapEl=useRef(null),mapRef=useRef(null),pinRef=useRef(null),orderLayerRef=useRef(null),searchLayerRef=useRef(null),instructionsRef=useRef(null),sheetTouchRef=useRef(null);
+ const [configCollapsed,setConfigCollapsed]=useState(false);
+ const [query,setQuery]=useState(''),[results,setResults]=useState([]),[searching,setSearching]=useState(false),[selected,setSelected]=useState(null),[form,setForm]=useState({type:'coleta',vehicle:'moto',carrier:'Zap Encomendas',client:'',clientPhone:'',instructions:''}),[message,setMessage]=useState('');
+ const [clients,setClients]=useState(()=>{try{return JSON.parse(localStorage.getItem('zap_carrier_clients')||'[]')}catch{return []}});
+ const [clientQuery,setClientQuery]=useState(''),[clientListOpen,setClientListOpen]=useState(false),[clientListQuery,setClientListQuery]=useState(''),[clientSuggestions,setClientSuggestions]=useState(false),[clientDialog,setClientDialog]=useState(false),[newClient,setNewClient]=useState({name:'',phone:''}),[clientError,setClientError]=useState('');
+ const normalizeClient=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+ const phoneDigits=value=>String(value||'').replace(/\D/g,'').slice(0,11);
+ const formatClientPhone=value=>{const d=phoneDigits(value);if(!d)return '';if(d.length<=2)return '('+d;if(d.length<=6)return '('+d.slice(0,2)+') '+d.slice(2);if(d.length<=10)return '('+d.slice(0,2)+') '+d.slice(2,6)+(d.length>6?'-'+d.slice(6):'');return '('+d.slice(0,2)+') '+d.slice(2,7)+(d.length>7?'-'+d.slice(7):'')};
+ const clientMatches=(c,q)=>normalizeClient(c.name).includes(normalizeClient(q))||phoneDigits(c.phone).includes(phoneDigits(q))&&phoneDigits(q).length>0;
+ const matchingClients=clients.filter(c=>clientMatches(c,clientQuery)).slice(0,7);
+ const listedClients=clients.filter(c=>clientMatches(c,clientListQuery)).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+ function chooseListedClient(c){selectClient(c);setClientListOpen(false)}
+ function selectClient(client){setClientQuery(client.name);setForm(v=>({...v,client:client.name,clientPhone:client.phone||''}));setClientSuggestions(false)}
+ function openClientRegistration(){setNewClient({name:clientQuery.trim(),phone:''});setClientError('');setClientSuggestions(false);setClientDialog(true)}
+ function registerClient(e){e.preventDefault();const name=newClient.name.trim(),phone=phoneDigits(newClient.phone);if(name.length<2){setClientError('Informe o nome do cliente.');return}if(phone.length<10||phone.length>11){setClientError('Informe um telefone válido com DDD.');return}if(clients.some(c=>normalizeClient(c.name)===normalizeClient(name))){setClientError('Já existe um cliente com esse nome. Selecione-o na busca.');return}const item={id:Date.now(),name,phone:formatClientPhone(phone)};setClients(prev=>{const next=[...prev,item];try{localStorage.setItem('zap_carrier_clients',JSON.stringify(next))}catch{}return next});selectClient(item);setClientDialog(false);setClientError('')}
+
+ const [orders,setOrders]=useState(()=>{try{return JSON.parse(localStorage.getItem('zap_carrier_orders')||'[]')}catch{return []}});
+ const [viewOrder,setViewOrder]=useState(null),[editingOrderId,setEditingOrderId]=useState(null),[carrierMenu,setCarrierMenu]=useState(false),[carrierProfile,setCarrierProfile]=useState(false),[placesDialog,setPlacesDialog]=useState(false),[placesFilter,setPlacesFilter]=useState(''),[carrierGps,setCarrierGps]=useState(null);
+ const carrierGpsMarker=useRef(null);
+ const [gpsRequestState,setGpsRequestState]=useState('initial');
+ const gpsRequestedRef=useRef(false);
+ function locateCarrier(){
+  setGpsRequestState('loading');setMessage('');
+  if(!navigator.geolocation){setGpsRequestState('error');return}
+  if(!window.isSecureContext){setGpsRequestState('error');return}
+  navigator.geolocation.getCurrentPosition(pos=>{
+   const point=[pos.coords.latitude,pos.coords.longitude];setCarrierGps(point);setGpsRequestState('ready');setMessage('Localização atualizada.');
+   const map=mapRef.current;if(!map)return;
+   if(carrierGpsMarker.current)carrierGpsMarker.current.remove();
+   carrierGpsMarker.current=L.circleMarker(point,{radius:9,color:'#fff',weight:3,fillColor:'#267ce7',fillOpacity:1}).addTo(map);
+   map.flyTo(point,17,{duration:.6});
+  },err=>{setGpsRequestState('error');setMessage('')},{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+ }
+ useEffect(()=>{if(gpsRequestedRef.current)return;gpsRequestedRef.current=true;const t=setTimeout(()=>locateCarrier(),600);return()=>clearTimeout(t)},[]);
+ function carrierZoom(amount){const map=mapRef.current;if(map)map.setZoom(map.getZoom()+amount)}
+ useEffect(()=>{if(!mapEl.current||mapRef.current||typeof L==='undefined')return;const map=L.map(mapEl.current,{zoomControl:false}).setView([-16.686,-49.265],13);L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri',maxZoom:19}).addTo(map);mapRef.current=map;orderLayerRef.current=L.layerGroup().addTo(map);searchLayerRef.current=L.layerGroup().addTo(map);const timer=setTimeout(()=>map.invalidateSize(),100);return()=>{clearTimeout(timer);map.remove();mapRef.current=null}},[]);
+ const safeText=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ useEffect(()=>{const map=mapRef.current,layer=orderLayerRef.current;if(!map||!layer)return;
+ layer.clearLayers();orders.forEach(order=>{
+  const lat=Number(order.lat),lng=Number(order.lng);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
+  const clean={...order,place:safeText(order.place||'Local selecionado'),carrier:safeText(order.carrier||'Transportadora'),type:['coleta','entrega','troca'].includes(order.type)?order.type:'coleta',vehicle:['moto','carro','utilitario'].includes(order.vehicle)?order.vehicle:'moto',closesAt:safeText(order.closesAt||'--:--'),lat,lng};
+  const marker=L.marker([lat,lng],{icon:L.divIcon({className:'job-div-icon',html:markerHtml(clean,null),iconSize:[399,154],iconAnchor:[29,154]}),title:String(order.place||'Pedido')});
+  const operation=({coleta:'Coleta',entrega:'Entrega',troca:'Troca'})[clean.type];
+  const vehicle=({moto:'Moto',carro:'Carro',utilitario:'Utilitário'})[clean.vehicle];
+  marker.on('click',()=>{setViewOrder(order);setSelected(null);setMessage('')});
+  marker.addTo(layer);
+ });},[orders]);
+ // Resultados de busca ficam visíveis no mapa, com pinos numerados e clicáveis.
+ useEffect(()=>{
+  const map=mapRef.current,layer=searchLayerRef.current;
+  if(!map||!layer)return;
+  layer.clearLayers();
+  if(!results.length||selected)return;
+  const bounds=[];
+  results.forEach((place,index)=>{
+   const lat=Number(place.lat),lng=Number(place.lon??place.lng);
+   if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
+   const shortName=String(place.name||place.display_name||'Local').split(',')[0];
+   const pin=L.divIcon({className:'zap-search-result-icon',html:'<span>'+String(index+1)+'</span>',iconSize:[36,44],iconAnchor:[18,42]});
+   const marker=L.marker([lat,lng],{icon:pin,zIndexOffset:1100,title:shortName,keyboard:true});
+   marker.on('click',()=>choose(place));
+   marker.bindTooltip(safeText(shortName),{direction:'top',offset:[0,-38],opacity:.95});
+   marker.addTo(layer);bounds.push([lat,lng]);
+  });
+  if(bounds.length){
+   const panel=document.querySelector('.carrier-map-bottom');
+   const panelHeight=panel?.getBoundingClientRect().height||110;
+   const available=Math.max(90,map.getSize().y-panelHeight);
+   map.invalidateSize();
+   if(bounds.length===1){map.setView(bounds[0],16,{animate:false});map.panBy([0,Math.round(map.getSize().y/2-available*.46)],{animate:false})}
+   else map.fitBounds(L.latLngBounds(bounds),{paddingTopLeft:[44,75],paddingBottomRight:[44,Math.min(panelHeight+24,map.getSize().y*.67)],maxZoom:16,animate:false});
+  }
+ },[results,selected]);
+ function editExistingOrder(order){setConfigCollapsed(false);setClientQuery(order.client||'');setClientSuggestions(false);setViewOrder(null);setEditingOrderId(order.id);setSelected({name:order.place,place:order.place,display_name:order.address||order.place,lat:order.lat,lng:order.lng});setForm({type:order.type||'coleta',vehicle:order.vehicle||'moto',carrier:order.carrier||'Zap Encomendas',client:order.client||'',clientPhone:order.clientPhone||'',instructions:order.instructions||''});setMessage('');if(mapRef.current)mapRef.current.flyTo([Number(order.lat),Number(order.lng)],16,{duration:.4})}
+ function showAllOrders(){const map=mapRef.current,layer=orderLayerRef.current;if(!map||!layer)return;const points=layer.getLayers().map(marker=>marker.getLatLng());if(points.length)map.fitBounds(L.latLngBounds(points).pad(.22),{maxZoom:16});else setMessage('Nenhum pedido cadastrado ainda.');}
+ useEffect(()=>{
+  if(!selected||configCollapsed)return;
+  const root=document.querySelector('.carrier-map-page');
+  const panel=root?.querySelector('.carrier-map-bottom');
+  if(!root||!panel)return;
+  let raf=0;
+  const adjust=()=>{
+   cancelAnimationFrame(raf);
+   raf=requestAnimationFrame(()=>{
+    const vv=window.visualViewport;
+    const full=window.innerHeight;
+    const visible=vv?vv.height:full;
+    const top=vv?vv.offsetTop:0;
+    const keyboard=Math.max(0,full-(top+visible));
+    const open=keyboard>110;
+    root.classList.toggle('zap-keyboard-open',open);
+    root.style.setProperty('--zap-keyboard-bottom',open?keyboard+'px':'0px');
+    root.style.setProperty('--zap-visible-height',Math.max(160,Math.min(open?visible-8:full*.88,720))+'px');
+    if(document.activeElement===instructionsRef.current){
+     const field=instructionsRef.current;
+     const rect=field.getBoundingClientRect();
+     const visibleBottom=top+visible;
+     if(rect.bottom>visibleBottom-16)panel.scrollTop+=rect.bottom-(visibleBottom-16);
+     if(rect.top<top+10)panel.scrollTop-=top+10-rect.top;    }
+   });
+  };
+  const focusField=()=>{adjust();setTimeout(adjust,90);setTimeout(adjust,300)};
+  const vv=window.visualViewport;
+  vv?.addEventListener('resize',adjust);
+  vv?.addEventListener('scroll',adjust);
+  window.addEventListener('resize',adjust);
+  const field=instructionsRef.current;
+  field?.addEventListener('focus',focusField);
+  adjust();
+  const timer=setTimeout(()=>{if(field){try{field.focus({preventScroll:true})}catch(e){field.focus()}focusField()}},180);
+  return ()=>{clearTimeout(timer);cancelAnimationFrame(raf);vv?.removeEventListener('resize',adjust);vv?.removeEventListener('scroll',adjust);window.removeEventListener('resize',adjust);field?.removeEventListener('focus',focusField);root.classList.remove('zap-keyboard-open');root.style.removeProperty('--zap-keyboard-bottom');root.style.removeProperty('--zap-visible-height')};
+ },[selected,configCollapsed]);
+ function choose(place){setConfigCollapsed(false);setClientQuery('');setClientSuggestions(false);setForm({type:'coleta',vehicle:'moto',carrier:'Zap Encomendas',client:'',clientPhone:'',instructions:''});setViewOrder(null);setEditingOrderId(null);setPlacesDialog(false);setSelected(place);setResults([]);setQuery(place.display_name||place.place);setMessage('');if(mapRef.current){const ll=[Number(place.lat),Number(place.lon??place.lng)];if(pinRef.current)pinRef.current.remove();pinRef.current=L.marker(ll).addTo(mapRef.current);mapRef.current.setView(ll,16);
+    // Reposiciona o ponto acima do painel inferior, depois que o formulário abrir.
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const map=mapRef.current;if(!map)return;
+      const height=map.getSize().y;
+      const panel=document.querySelector('.carrier-map-bottom');
+      const panelHeight=panel?.getBoundingClientRect().height||0;
+      const freeHeight=Math.max(110,height-panelHeight);
+      const targetY=Math.min(height*.32,freeHeight*.52);
+      map.panBy([0,Math.round(height/2-targetY)],{animate:false});
+    }));}}
+ async function search(e){e.preventDefault();if(query.trim().length<3)return;setSearching(true);setResults([]);setMessage('');try{const response=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=br&q='+encodeURIComponent(query));if(!response.ok)throw Error('Serviço indisponível');const found=await response.json();setResults(found);if(found.length&&document.activeElement?.tagName==='INPUT')document.activeElement.blur();if(!found.length)setMessage('Nenhum local encontrado. Tente incluir cidade e estado.')}catch{setMessage('Não foi possível buscar agora. Escolha um local de demonstração abaixo.')}finally{setSearching(false)}}
+ function submit(e){
+  if(e&&e.preventDefault)e.preventDefault();
+  if(!selected){setMessage('Selecione um local antes de cadastrar.');return}
+  const lat=Number(selected.lat),lng=Number(selected.lon??selected.lng);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)){setMessage('Este local não tem coordenadas válidas. Selecione outro endereço.');return}
+  if(!form.client){setMessage('Selecione ou cadastre um cliente antes de continuar.');setClientSuggestions(true);return}
+  const order={id:editingOrderId||Date.now()+'-'+Math.random().toString(36).slice(2,7),place:selected.name||selected.place||selected.display_name?.split(',')[0]||'Local selecionado',address:selected.display_name||selected.place||'',lat,lng,...form,carrier:'Zap Encomendas',client:form.client,status:'Aguardando motorista'};
+  setOrders(previous=>{const next=editingOrderId?previous.map(item=>String(item.id)===String(editingOrderId)?order:item):[order,...previous];try{localStorage.setItem('zap_carrier_orders',JSON.stringify(next))}catch{}return next});
+  setSelected(null);setEditingOrderId(null);setViewOrder(null);setResults([]);setQuery('');
+  setMessage(editingOrderId?'Pedido atualizado no mapa.':'Pedido cadastrado! Marcador adicionado ao mapa.');
+  if(pinRef.current){pinRef.current.remove();pinRef.current=null}
+  const map=mapRef.current;
+  if(map){map.invalidateSize();map.flyTo([lat,lng],16,{duration:.5});
+   // O marcador aparece pelo efeito de atualização dos pedidos; detalhes apenas ao tocar nele.
+  }
+ }
+
+ return <main className={["carrier-map-page",placesDialog&&"carrier-places-open",selected&&"carrier-config-open",selected&&configCollapsed&&"carrier-config-collapsed"].filter(Boolean).join(" ")}><div ref={mapEl} className="carrier-map-canvas"/><div className="carrier-map-controls"><button type="button" className="carrier-map-control" aria-label="Abrir menu" onClick={()=>setCarrierMenu(true)}><Icon name="menu"/></button><button type="button" className="carrier-map-control" aria-label="Perfil da transportadora" onClick={()=>setCarrierProfile(true)}><Icon name="profile"/></button></div><div className="carrier-map-tools"><button type="button" className="carrier-map-control" aria-label="Aproximar mapa" onClick={()=>carrierZoom(1)}>+</button><button type="button" className="carrier-map-control" aria-label="Afastar mapa" onClick={()=>carrierZoom(-1)}>−</button><button type="button" className="carrier-map-control" aria-label="Minha localização" onClick={locateCarrier}><Icon name="locate"/></button></div>{carrierMenu&&<div className="carrier-overlay" onClick={()=>setCarrierMenu(false)}><aside className="carrier-drawer" onClick={e=>e.stopPropagation()}><div className="carrier-drawer-head"><strong>Zap Encomendas</strong><button type="button" onClick={()=>setCarrierMenu(false)} aria-label="Fechar menu"><Icon name="close"/></button></div><p>Transportadora</p><button type="button" onClick={()=>{setCarrierMenu(false);showAllOrders()}}><Icon name="locate"/> Mostrar pedidos no mapa</button><button type="button" onClick={()=>{setCarrierMenu(false);setCarrierProfile(true)}}><Icon name="profile"/> Meu perfil</button><button type="button" onClick={()=>{setCarrierMenu(false);locateCarrier()}}><Icon name="locate"/> Minha localização</button><button type="button" onClick={onBack}><Icon name="logout"/> Sair da conta</button></aside></div>}{carrierProfile&&<div className="carrier-overlay" onClick={()=>setCarrierProfile(false)}><section className="carrier-profile-modal" onClick={e=>e.stopPropagation()}><button className="carrier-profile-close" type="button" onClick={()=>setCarrierProfile(false)} aria-label="Fechar"><Icon name="close"/></button><Icon name="truck"/><h2>Perfil da transportadora</h2><p>Zap Encomendas</p><button type="button" onClick={()=>setCarrierProfile(false)}>Voltar ao mapa</button></section></div>}<div className="carrier-map-bottom">{!selected&&!viewOrder&&<form onSubmit={search} className="carrier-search"><div className="carrier-search-input-wrap"><input aria-label="Buscar endereço" placeholder="Buscar loja, rua ou endereço..." value={query} onChange={e=>{setQuery(e.target.value);if(!e.target.value.trim()){setResults([]);setMessage('')}}}/>{query&&<button type="button" className="carrier-search-clear" aria-label="Limpar busca de endereços" title="Limpar busca" onClick={()=>{setQuery('');setResults([]);setMessage('')}}><Icon name="close"/></button>}</div><button type="submit" className="carrier-search-action" aria-label={searching?'Buscando endereços':'Buscar endereços'} title="Buscar endereços" disabled={searching}><Icon name="search"/></button><button type="button" className="carrier-places-trigger" onClick={()=>{setPlacesFilter('');setPlacesDialog(true)}} aria-label="Locais disponíveis" title="Locais disponíveis"><Icon name="list"/></button></form>}{!selected&&!viewOrder&&results.length>0&&<div className="carrier-search-results"><div className="carrier-search-results-hint"><Icon name="map-pin"/> {results.length} locais no mapa · toque no pino ou na lista</div>{results.map((r,i)=>{const parts=String(r.display_name||r.name||'Local encontrado').split(',').map(v=>v.trim()).filter(Boolean);const title=parts[0]||'Local encontrado';const subtitle=parts.slice(1).join(', ')||'Toque para selecionar este endereço';return <button type="button" className="carrier-result-item" key={r.place_id||i} onClick={()=>choose(r)} aria-label={'Selecionar local '+(i+1)+': '+r.display_name}><b className="carrier-result-number">{i+1}</b><span className="carrier-result-text"><strong>{title}</strong><small>{subtitle}</small></span><span className="carrier-result-select"><Icon name="chevron-right"/></span></button>})}</div>}{placesDialog&&<div className="carrier-places-backdrop" onClick={()=>setPlacesDialog(false)}><section className="carrier-places-dialog" role="dialog" aria-modal="true" aria-label="Selecionar local" onClick={e=>e.stopPropagation()}><header><div><small>LOCAIS DISPONÍVEIS</small><h2>Selecione o local</h2></div><button type="button" onClick={()=>setPlacesDialog(false)} aria-label="Fechar lista"><Icon name="close"/></button></header><div className="carrier-places-items">{demoRequests.slice(0,9).filter(r=>r.place.toLocaleLowerCase('pt-BR').includes(placesFilter.trim().toLocaleLowerCase('pt-BR'))).map((r,i)=><button type="button" key={i} onClick={()=>choose({...r,display_name:r.place+', Goiânia, Goiás'})}><span className="carrier-place-icon"><Icon name="map-pin"/></span><span><strong>{r.place}</strong><small>Goiânia, Goiás</small></span><Icon name="chevron-right"/></button>)}{!demoRequests.slice(0,9).some(r=>r.place.toLocaleLowerCase('pt-BR').includes(placesFilter.trim().toLocaleLowerCase('pt-BR')))&&<p className="carrier-places-empty" role="status"><Icon name="info"/> Nenhum local encontrado. Tente outro nome.</p>}</div><div className="carrier-places-bottom-search"><Icon name="search"/><input type="search" placeholder="Buscar local na lista..." aria-label="Buscar locais disponíveis" value={placesFilter} onChange={e=>setPlacesFilter(e.target.value)}/>{placesFilter&&<button type="button" onClick={()=>setPlacesFilter('')} aria-label="Limpar busca"><Icon name="close"/></button>}</div></section></div>}{viewOrder&&<div className="carrier-order-detail-backdrop" onClick={()=>setViewOrder(null)}><section className="job-modal carrier-order-detail" onClick={e=>e.stopPropagation()}><div className="job-modal-handle"/><div className="job-modal-head"><div><small className="job-modal-kicker">DETALHES DO PEDIDO</small><h2>{viewOrder.place}</h2><p>{viewOrder.address||'Endereço não informado'}</p></div><button type="button" className="job-modal-close" aria-label="Fechar detalhes" onClick={()=>setViewOrder(null)}><Icon name="close"/></button></div><div className="job-modal-info"><div><small>Serviço</small><strong>{{coleta:'Coleta',entrega:'Entrega',troca:'Troca'}[viewOrder.type]||viewOrder.type}</strong></div><div><small>Veículo</small><strong>{{moto:'Moto',carro:'Carro',utilitario:'Utilitário'}[viewOrder.vehicle]||viewOrder.vehicle}</strong></div><div><small>Transportadora</small><strong>{viewOrder.carrier}</strong></div><div><small>Cliente</small><strong>{viewOrder.client||'Não informado'}</strong></div><div><small>Status</small><strong>{viewOrder.status||'Aguardando motorista'}</strong></div></div><div className="job-modal-instructions"><strong className="job-modal-instructions-title"><Icon name="info"/> Instruções</strong><p>{viewOrder.instructions||'Sem instruções adicionais'}</p></div><button type="button" className="carrier-submit" style={{width:'100%',marginTop:14}} onClick={()=>editExistingOrder(viewOrder)}><Icon name="check"/> Editar pedido</button></section></div>}{selected&&configCollapsed&&<button type="button" className="carrier-config-restore" onClick={()=>setConfigCollapsed(false)} aria-label="Reabrir configurações do pedido"><span className="carrier-config-restore-pin"><Icon name="map-pin"/></span><span className="carrier-config-restore-text"><small>CONTINUAR CONFIGURAÇÃO</small><strong>{String(selected.display_name||selected.place||'Local selecionado').split(',')[0]}</strong></span><span className="carrier-config-restore-chevron"><Icon name="chevron-up"/></span></button>}{selected&&!configCollapsed&&<form className="carrier-order-config carrier-config-compact" onSubmit={submit}><div className="carrier-config-drag" role="button" tabIndex="0" aria-label="Recolher configurações do pedido" onTouchStart={e=>{sheetTouchRef.current=e.touches[0]?.clientY}} onTouchEnd={e=>{const y=e.changedTouches[0]?.clientY;if(sheetTouchRef.current!=null&&y-sheetTouchRef.current>55){document.activeElement?.blur?.();setConfigCollapsed(true)}sheetTouchRef.current=null}} onClick={()=>{document.activeElement?.blur?.();setConfigCollapsed(true)}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setConfigCollapsed(true)}}}><span/></div><div className="carrier-config-title"><div className="carrier-config-heading"><span className="carrier-config-kicker">{editingOrderId?'EDITANDO PEDIDO':'NOVO PEDIDO'}</span><strong>{editingOrderId?'Editar pedido':'Configurar pedido'}</strong></div><button type="button" className="carrier-config-close" aria-label="Fechar configuração" onClick={()=>{setSelected(null);setEditingOrderId(null)}}><Icon name="close"/></button></div><div className="carrier-config-location" title={selected.display_name||selected.place}><Icon name="map-pin"/><span>{selected.display_name||selected.place}</span></div><div className="carrier-config-section"><span className="carrier-config-label">O que vamos fazer?</span><div className="carrier-config-options carrier-config-service">{[{id:'coleta',label:'Coleta',icon:'package'},{id:'entrega',label:'Entrega',icon:'truck'},{id:'troca',label:'Troca',icon:'refresh-cw'}].map(item=><button key={item.id} type="button" className={'carrier-config-choice service-'+item.id+(form.type===item.id?' selected':'')} aria-pressed={form.type===item.id} onClick={()=>setForm(v=>({...v,type:item.id}))}><Icon name={item.icon}/><span>{item.label}</span></button>)}</div></div><div className="carrier-config-section"><span className="carrier-config-label">Qual veículo?</span><div className="carrier-config-options carrier-config-vehicle">{[{id:'moto',label:'Moto',icon:'bike'},{id:'carro',label:'Carro',icon:'car'},{id:'utilitario',label:'Utilitário',icon:'truck'}].map(item=><button key={item.id} type="button" className={'carrier-config-choice vehicle-'+item.id+(form.vehicle===item.id?' selected':'')} aria-pressed={form.vehicle===item.id} onClick={()=>setForm(v=>({...v,vehicle:item.id}))}><Icon name={item.icon}/><span>{item.label}</span></button>)}</div></div><div className="zap-client-field"><label htmlFor="zap-client-search">Cliente</label><div className="zap-client-input-wrap"><Icon name="search"/><input id="zap-client-search" type="text" autoComplete="off" placeholder="Buscar cliente pelo nome..." value={clientQuery} onFocus={()=>setClientSuggestions(true)} onChange={e=>{setClientQuery(e.target.value);setForm(v=>({...v,client:'',clientPhone:''}));setClientSuggestions(true)}}/><button type="button" className="zap-client-icon-button" title="Listar clientes salvos" aria-label="Listar clientes salvos" onClick={()=>{setClientSuggestions(false);setClientListQuery('');setClientListOpen(true)}}><Icon name="list"/></button><button type="button" className="zap-client-icon-button zap-client-add" title="Cadastrar cliente" aria-label="Cadastrar cliente" onClick={openClientRegistration}><Icon name="plus"/></button></div>{clientSuggestions&&<div className="zap-client-suggestions">{matchingClients.map(c=><button key={c.id||c.name} type="button" onClick={()=>selectClient(c)}><span className="zap-client-avatar"><Icon name="profile"/></span><span><strong>{c.name}</strong><small>{c.phone}</small></span><Icon name="check"/></button>)}{!matchingClients.length&&<p>Nenhum cliente encontrado</p>}{clientQuery.trim()&&!clients.some(c=>normalizeClient(c.name)===normalizeClient(clientQuery))&&<button type="button" className="zap-client-create" onClick={openClientRegistration}><strong>+ Cadastrar “{clientQuery.trim()}”</strong><small>Informar nome e telefone</small></button>}{!clientQuery.trim()&&<button type="button" className="zap-client-create" onClick={openClientRegistration}><strong>+ Cadastrar novo cliente</strong></button>}</div>}{form.client&&<div className="zap-client-selected"><Icon name="check"/> Cliente selecionado: <strong>{form.client}</strong></div>}</div><div className="carrier-config-instructions"><label htmlFor="carrier-driver-instructions"><Icon name="info"/> Observações para o motorista</label><textarea id="carrier-driver-instructions" ref={instructionsRef} rows="3" aria-label="Observações para o motorista" value={form.instructions} onChange={e=>setForm(v=>({...v,instructions:e.target.value}))} placeholder="Escreva aqui o que o motorista precisa saber. Ex.: Retirar na recepção, falar com João..."/></div><button className="carrier-submit carrier-config-save" type="submit"><Icon name="check"/>{editingOrderId?'Salvar alterações':'Cadastrar pedido'}</button></form>}{clientListOpen&&<div className="zap-client-modal-backdrop" onClick={()=>setClientListOpen(false)}><div className="zap-client-modal zap-client-list-modal" onClick={e=>e.stopPropagation()}><div className="zap-client-modal-head"><div><small>CLIENTES SALVOS</small><h3>Selecionar cliente</h3></div><button type="button" aria-label="Fechar" onClick={()=>setClientListOpen(false)}><Icon name="close"/></button></div><div className="zap-client-list-search"><Icon name="search"/><input autoFocus type="search" placeholder="Buscar por nome ou telefone" value={clientListQuery} onChange={e=>setClientListQuery(e.target.value)}/></div><div className="zap-client-list-items">{listedClients.map(c=><button type="button" key={c.id||c.name} onClick={()=>chooseListedClient(c)}><span className="zap-client-avatar"><Icon name="profile"/></span><span><strong>{c.name}</strong><small>{formatClientPhone(c.phone)}</small></span><Icon name="chevron-right"/></button>)}{!listedClients.length&&<p>{clients.length?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado ainda.'}</p>}</div><button type="button" className="zap-client-list-new" onClick={()=>{setClientListOpen(false);setClientQuery(clientListQuery);setNewClient({name:clientListQuery,phone:''});setClientError('');setClientDialog(true)}}><Icon name="plus"/> Cadastrar novo cliente</button></div></div>}{clientDialog&&<div className="zap-client-modal-backdrop" onClick={()=>setClientDialog(false)}><form className="zap-client-modal" onClick={e=>e.stopPropagation()} onSubmit={registerClient}><div className="zap-client-modal-head"><div><small>CADASTRO RÁPIDO</small><h3>Novo cliente</h3></div><button type="button" aria-label="Fechar" onClick={()=>setClientDialog(false)}><Icon name="close"/></button></div><label>Nome do cliente<input autoFocus required value={newClient.name} onChange={e=>setNewClient(v=>({...v,name:e.target.value}))} placeholder="Nome completo ou nome da loja"/></label><label>Telefone com DDD<input required type="tel" inputMode="tel" value={newClient.phone} maxLength={15} onChange={e=>setNewClient(v=>({...v,phone:formatClientPhone(e.target.value)}))} placeholder="(62) 99999-9999"/></label>{clientError&&<p role="alert" className="zap-client-error">{clientError}</p>}<button type="submit" className="carrier-submit"><Icon name="check"/> Salvar e selecionar cliente</button></form></div>}{message&&<p className={"carrier-message"+(/nenhum local|não foi possível|indisponível/i.test(message)?" is-error":"")} role="status">{message}</p>}</div></main>}
+const zapSessionMemory={auth:null,profile:null};
+function readZapState(key){try{const v=localStorage.getItem(key);return v?JSON.parse(v):zapSessionMemory[key==='zap_auth_state'?'auth':'profile']}catch{return zapSessionMemory[key==='zap_auth_state'?'auth':'profile']}}
+function writeZapState(key,value){zapSessionMemory[key==='zap_auth_state'?'auth':'profile']=value;try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,JSON.stringify(value))}catch{}}
+function App(){
+ const [page,setPage]=useState(()=>{const a=readZapState('zap_auth_state');return a?.loggedIn?(a.role==='transportadora'?'carrier':'map'):'choose'});
+ const [role,setRole]=useState('motorista');
+ const [profile,setProfile]=useState(()=>readZapState('zap_profile_demo')||{name:'Motorista',phone:'',photo:'',vehicles:['moto','carro','utilitario']});
+ const [activeVehicle,setActiveVehicle]=useState(()=>readZapState('zap_auth_state')?.activeVehicle||'moto');
+ const [returnPage,setReturnPage]=useState('map');
+ const saveProfile=p=>{setProfile(p);writeZapState('zap_profile_demo',p)};
+ const logout=()=>{writeZapState('zap_auth_state',null);setPage('choose')};
+ const login=(n,vehicles)=>{if(role==='transportadora'){writeZapState('zap_auth_state',{loggedIn:true,role:'transportadora'});setPage('carrier');return}const v=vehicles?.length?vehicles:(profile.vehicles?.length?profile.vehicles:['moto']);const selected=v[0];saveProfile({...profile,name:n==='Motorista'?(profile.name||n):n,vehicles:v});setActiveVehicle(selected);writeZapState('zap_auth_state',{loggedIn:true,role:'motorista',activeVehicle:selected});setPage('map')};
+ return page==='choose'?<RoleChoice onChoose={r=>{setRole(r);setPage('auth')}}/>:page==='auth'?<Auth carrierMode={role==='transportadora'} onLogin={login}/>:page==='carrier'?<CarrierDashboard onBack={logout}/>:page==='profile'?<ProfilePage profile={profile} onSave={saveProfile} onBack={()=>setPage(returnPage)}/>:<MapView profile={profile} activeVehicle={activeVehicle} onEnd={logout} onLogout={logout} onProfile={()=>{setReturnPage('map');setPage('profile')}}/>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script><script>window.addEventListener('error',function(e){if(!document.getElementById('root').children.length){document.getElementById('root').innerHTML='<div style="font:16px Arial;padding:30px;text-align:center"><h2>Não foi possível carregar o aplicativo</h2><p>O visualizador pode estar bloqueando os scripts externos (React/Babel). Abra o HTML no navegador ou hospede os arquivos.</p></div>';}});</script></body></html>
