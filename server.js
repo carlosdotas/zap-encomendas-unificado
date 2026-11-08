@@ -302,9 +302,37 @@ async function orderRoutes(req,res,path) {
  sendJson(res,req.method==='POST'?201:200,{ok:true,order:mapOrder(rows[0])});return true;
 }
 
+
+async function googleAddressSearch(req,res,path) {
+ if(path!=='/api/maps/search' || req.method!=='GET') return false;
+ const key=process.env.GOOGLE_MAPS_API_KEY;
+ if(!key){sendJson(res,503,{error:'Busca Google Maps aguardando configuração de GOOGLE_MAPS_API_KEY na hospedagem.'});return true;}
+ const query=new URL(req.url,'http://localhost').searchParams.get('q')?.trim()||'';
+ if(query.length<3||query.length>200){sendJson(res,400,{error:'Informe um endereço de 3 a 200 caracteres.'});return true;}
+ if(rateLimit(req,'maps-search')){sendJson(res,429,{error:'Limite de buscas atingido. Tente novamente mais tarde.'});return true;}
+ try{
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),8000);
+  let response;
+  try {response=await fetch('https://places.googleapis.com/v1/places:searchText',{
+   method:'POST',signal:controller.signal,
+   headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location'},
+   body:JSON.stringify({textQuery:query,languageCode:'pt-BR',regionCode:'BR',pageSize:8,locationBias:{circle:{center:{latitude:-16.686,longitude:-49.265},radius:50000}}})
+  });}finally{clearTimeout(timeout)}
+  if(!response.ok){console.error('[MAPS] Google Places status',response.status);sendJson(res,502,{error:'Google Maps indisponível. Verifique se Places API (New) está habilitada e a chave está autorizada.'});return true;}
+  const data=await response.json();
+  const results=(data.places||[]).filter(p=>Number.isFinite(p.location?.latitude)&&Number.isFinite(p.location?.longitude)).map(p=>({
+   place_id:p.id,name:p.displayName?.text||p.formattedAddress||'Local',display_name:p.formattedAddress||p.displayName?.text||'Local',
+   lat:p.location.latitude,lon:p.location.longitude
+  }));
+  sendJson(res,200,{results});return true;
+ }catch(err){console.error('[MAPS]',err.name||'ERROR');sendJson(res,502,{error:'Não foi possível consultar o Google Maps agora.'});return true;}
+}
+
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
+  if (await googleAddressSearch(req,res,path)) return;
   if (path.startsWith('/api/orders')) {if(await orderRoutes(req,res,path)) return;}
   if (path.startsWith('/api/auth/')) {
     if(await authRoutes(req,res,path)) return;
