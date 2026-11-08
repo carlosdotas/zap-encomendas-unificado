@@ -17,7 +17,7 @@ import org.json.JSONObject;
 import java.util.*;
 
 public class MainActivity extends BridgeActivity {
-    private boolean pendingStart=false, registered=false, permissionDialog=false;
+    private boolean pendingStart=false, registered=false, permissionDialog=false, permissionRequestInFlight=false;
     private final BroadcastReceiver events=new BroadcastReceiver(){public void onReceive(Context c,Intent i){dispatch(i.getStringExtra("type"),i.getStringExtra("data"));}};
     @Override protected void load(){
         super.load();
@@ -51,23 +51,27 @@ public class MainActivity extends BridgeActivity {
     }
     private boolean granted(String p){return ContextCompat.checkSelfPermission(this,p)==PackageManager.PERMISSION_GRANTED;}
     private void explain(String text,Runnable next){if(permissionDialog)return;permissionDialog=true;new AlertDialog.Builder(this).setTitle("Jornada do motorista").setMessage(text).setPositiveButton("Continuar",(d,w)->{permissionDialog=false;next.run();}).setNegativeButton("Agora não",(d,w)->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");}).setCancelable(false).show();}
+    private void requestDriverPermissions(String... permissions){
+        if(permissionRequestInFlight)return;
+        permissionRequestInFlight=true;
+        requestPermissions(permissions,100);
+    }
     private void prepareDriver(){
-        if(!pendingStart||isFinishing())return;
+        if(!pendingStart||isFinishing()||permissionDialog||permissionRequestInFlight)return;
         if(!granted(Manifest.permission.ACCESS_FINE_LOCATION)){
-            explain("Para ficar online, o motorista precisa compartilhar a localização precisa durante a jornada. O aplicativo mantém uma notificação visível. Ao sair da conta, o rastreamento para.",()->requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},100));return;
+            explain("Para ficar online, o motorista precisa compartilhar a localização precisa durante a jornada. O aplicativo mantém uma notificação visível. Ao sair da conta, o rastreamento para.",()->requestDriverPermissions(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION));return;
         }
         if(Build.VERSION.SDK_INT>=33&&!granted(Manifest.permission.POST_NOTIFICATIONS)){
-            explain("Permita notificações para receber as chamadas dos pedidos.",()->requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},100));return;
+            explain("Permita notificações para receber as chamadas dos pedidos.",()->requestDriverPermissions(Manifest.permission.POST_NOTIFICATIONS));return;
         }
         LocationManager lm=(LocationManager)getSystemService(LOCATION_SERVICE);
         if(!lm.isProviderEnabled(LocationManager.GPS_PROVIDER)){
             explain("Ative o GPS para ficar disponível para pedidos.",()->startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)));return;
         }
         if(Build.VERSION.SDK_INT>=29&&!granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION)){
-            explain("Nas permissões de localização, selecione ‘Permitir o tempo todo’. O GPS será usado somente enquanto sua jornada estiver ativa.",()->{
-                if(Build.VERSION.SDK_INT==29)requestPermissions(new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION},100);
-                else startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));
-            });return;
+            // Request background location separately, after precise foreground location.
+            // Android's PermissionController opens its own location permission flow.
+            requestDriverPermissions(Manifest.permission.ACCESS_BACKGROUND_LOCATION);return;
         }
         NotificationManager nm=getSystemService(NotificationManager.class);
         if(!nm.areNotificationsEnabled()){
@@ -90,7 +94,33 @@ public class MainActivity extends BridgeActivity {
         ContextCompat.startForegroundService(this,service);
     }
     private void dispatch(String type,String data){if(bridge==null)return;String payload=data==null?"{}":data;runOnUiThread(()->bridge.getWebView().evaluateJavascript("window.__zapDispatch&&window.__zapDispatch("+JSONObject.quote(type)+","+payload+")",null));}
-    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==100){boolean all=results.length>0;for(int r:results)all&=r==PackageManager.PERMISSION_GRANTED;if(all)prepareDriver();else{pendingStart=false;dispatch("offline","{}");new AlertDialog.Builder(this).setMessage("É necessário autorizar a localização e as notificações para ficar online. Você pode ativá-las nas configurações do aplicativo.").setPositiveButton("Abrir configurações",(d,w)->startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())))).setNegativeButton("Fechar",null).show();}}}
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
+        super.onRequestPermissionsResult(request,permissions,results);
+        if(request!=100)return;
+        permissionRequestInFlight=false;
+        boolean all=results.length>0;
+        for(int result:results)all&=result==PackageManager.PERMISSION_GRANTED;
+        if(all){prepareDriver();return;}
+        boolean canAskAgain=false,background=false;
+        for(String permission:permissions){
+            if(!granted(permission)&&shouldShowRequestPermissionRationale(permission))canAskAgain=true;
+            if(Manifest.permission.ACCESS_BACKGROUND_LOCATION.equals(permission))background=true;
+        }
+        String message=background
+            ? "Selecione ‘Permitir o tempo todo’ na permissão de localização para receber pedidos com o aplicativo em segundo plano. O GPS funciona apenas durante a jornada."
+            : "Autorize a localização precisa e as notificações para ficar online e receber pedidos.";
+        if(!canAskAgain)message+=" O Android bloqueou novas solicitações. Para liberar, altere a permissão nas configurações do aplicativo.";
+        final boolean requestAgain=canAskAgain;
+        permissionDialog=true;
+        new AlertDialog.Builder(this).setTitle("Permissão necessária").setMessage(message)
+            .setPositiveButton(requestAgain?"Solicitar permissão":"Abrir configurações",(d,w)->{
+                permissionDialog=false;
+                if(requestAgain)requestDriverPermissions(permissions);
+                else startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));
+            })
+            .setNegativeButton("Agora não",(d,w)->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");})
+            .setCancelable(false).show();
+    }
     @Override public void onStart(){super.onStart();if(!registered){ContextCompat.registerReceiver(this,events,new IntentFilter(DriverService.EVENT),ContextCompat.RECEIVER_NOT_EXPORTED);registered=true;}}
     @Override public void onResume(){super.onResume();if(bridge!=null){if(pendingStart)bridge.getWebView().postDelayed(this::prepareDriver,400);if(DriverService.connected)dispatch("open","{}");if(DriverService.running)DriverService.replay(this);}}
     @Override public void onDestroy(){if(registered)unregisterReceiver(events);super.onDestroy();}

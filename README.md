@@ -56,7 +56,10 @@ Não publique chaves de assinatura ou credenciais Firebase no Git.
 ### Jornada e permissões
 
 - Ao entrar como motorista, o aplicativo explica e solicita localização precisa,
-  notificações e localização em segundo plano (“Permitir o tempo todo”). O GPS
+  notificações e localização em segundo plano (“Permitir o tempo todo”). A
+  localização em segundo plano é solicitada separadamente pela API de permissões
+  do Android, depois da localização precisa. A tela geral de configurações só
+  é usada como alternativa quando o sistema bloqueia novas solicitações. O GPS
   precisa estar ligado para iniciar a jornada. Negar essas permissões impede
   ficar online, sem forçar a concessão pelo usuário.
 - Durante a jornada, `DriverService` mantém uma notificação visível, GPS nativo
