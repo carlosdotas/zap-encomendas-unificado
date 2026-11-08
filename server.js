@@ -690,7 +690,7 @@ const server = http.createServer(async (req,res) => {
     if(!res.headersSent) sendJson(res,500,{error:'Falha ao processar cadastro ou login.',code,hint:dbErrorHint(code)});
   }
 });
-server.on('upgrade',async(req,socket,head)=>{try{if(new URL(req.url,'http://localhost').pathname!=='/ws/calls'){socket.destroy();return}await ensureDatabase();const user=await getSession(req);if(!user||user.role!=='motorista'){socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');socket.destroy();return}callWss.handleUpgrade(req,socket,head,ws=>callWss.emit('connection',ws,req,user))}catch{socket.destroy()}});
+server.on('upgrade',async(req,socket,head)=>{try{if(new URL(req.url,'http://localhost').pathname!=='/ws/calls'){socket.destroy();return}const origin=req.headers.origin;const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin){let originHost='';try{originHost=new URL(origin).host}catch{}if(!originHost||originHost!==host){socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');socket.destroy();return}}await ensureDatabase();const user=await getSession(req);if(!user||user.role!=='motorista'){socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');socket.destroy();return}callWss.handleUpgrade(req,socket,head,ws=>callWss.emit('connection',ws,req,user))}catch{socket.destroy()}});
 server.listen(PORT, HOST, () => {
   console.log('[ZAP] Servidor online na porta '+PORT);
   ensureDatabase(true).then(recoverPendingCalls).catch(err => console.error('[BOOT]',err.message));
