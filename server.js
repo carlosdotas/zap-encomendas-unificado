@@ -385,7 +385,7 @@ async function quickClientRoutes(req,res,path){
 }
 
 async function orderRoutes(req,res,path) {
- if(!path.startsWith('/api/orders')) return false;
+ if(!path.startsWith('/api/orders') && path!=='/api/driver/orders') return false;
  if(!['GET','POST','PUT'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true;}
  if(req.method!=='GET' && req.headers.origin) {
    let originHost='';try{originHost=new URL(req.headers.origin).host}catch{}
@@ -396,7 +396,7 @@ async function orderRoutes(req,res,path) {
  if(!databaseStatus.ok || migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível',diagnostic:databaseDiagnostics()});return true;}
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para gerenciar pedidos'});return true;}
- if(req.method==='GET' && path==='/api/orders' && user.role==='motorista'){
+ if(req.method==='GET' && (path==='/api/driver/orders' || (path==='/api/orders' && user.role==='motorista')) && ['motorista','transportadora'].includes(user.role)){
    const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE o.status='aguardando_motorista' OR (o.driver_id=? AND o.status='aceito') ORDER BY o.created_at ASC LIMIT 500",[user.id]);
    sendJson(res,200,{orders:rows.map(row=>({...mapOrder(row),carrier:row.carrier_name||'Transportadora'}))});return true;
  }
@@ -667,7 +667,7 @@ const server = http.createServer(async (req,res) => {
   if (await savedPlacesRoutes(req,res,path)) return;
   if (await googleAddressSearch(req,res,path)) return;
   if (await quickClientRoutes(req,res,path)) return;
-  if (path.startsWith('/api/orders')) {if(await orderRoutes(req,res,path)) return;}
+  if (path.startsWith('/api/orders') || path==='/api/driver/orders') {if(await orderRoutes(req,res,path)) return;}
   if (path.startsWith('/api/auth/')) {
     if(await authRoutes(req,res,path)) return;
   }
