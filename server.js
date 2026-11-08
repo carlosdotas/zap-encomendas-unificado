@@ -66,7 +66,8 @@ const migrations = [
   [9, ["ALTER TABLE zap_order_entries ADD COLUMN closes_at TIME NULL"]],
   [10, ["ALTER TABLE zap_order_entries ADD COLUMN driver_id BIGINT UNSIGNED NULL", "ALTER TABLE zap_order_entries ADD INDEX idx_zap_order_driver (driver_id)"]],
   [11, ["CREATE TABLE IF NOT EXISTS zap_driver_positions (user_id BIGINT UNSIGNED PRIMARY KEY, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, accuracy FLOAT NOT NULL, captured_at DATETIME NOT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB"]],
-  [12, ["CREATE TABLE IF NOT EXISTS zap_carrier_driver_settings (carrier_id BIGINT UNSIGNED PRIMARY KEY, configured TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_carrier_allowed_drivers (carrier_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, PRIMARY KEY (carrier_id,driver_id), KEY idx_allowed_driver (driver_id)) ENGINE=InnoDB"]]
+  [12, ["CREATE TABLE IF NOT EXISTS zap_carrier_driver_settings (carrier_id BIGINT UNSIGNED PRIMARY KEY, configured TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_carrier_allowed_drivers (carrier_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, PRIMARY KEY (carrier_id,driver_id), KEY idx_allowed_driver (driver_id)) ENGINE=InnoDB"]],
+  [13, ["ALTER TABLE zap_order_entries ADD COLUMN value_items JSON NULL"]]
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
@@ -360,7 +361,7 @@ async function adminRoutes(req,res,path){
 }
 
 function mapOrder(row) {
- return {id:String(row.id),ownerId:row.owner_user_id==null?null:String(row.owner_user_id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',closesAt:row.closes_at?String(row.closes_at).slice(0,5):'',instructions:row.instructions||'',driverId:row.driver_id==null?null:String(row.driver_id),driverName:row.driver_name||null,status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
+ return {id:String(row.id),ownerId:row.owner_user_id==null?null:String(row.owner_user_id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',closesAt:row.closes_at?String(row.closes_at).slice(0,5):'',instructions:row.instructions||'',values:(()=>{try{const items=typeof row.value_items==='string'?JSON.parse(row.value_items):row.value_items;return Array.isArray(items)?items:[]}catch{return []}})(),driverId:row.driver_id==null?null:String(row.driver_id),driverName:row.driver_name||null,status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
 }
 
 async function quickClientRoutes(req,res,path){
@@ -448,14 +449,17 @@ async function orderRoutes(req,res,path) {
  if(place.length<2||place.length>255||address.length>600||client.length>160||instructions.length>5000||(closesAt&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(closesAt))||!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180||!['coleta','entrega','troca'].includes(type)||!['moto','carro','utilitario'].includes(vehicle)|| (phone && !/^\d{10,11}$/.test(phone))) {
    sendJson(res,400,{error:'Confira local, coordenadas, telefone e tipo do pedido.'});return true;
  }
- const params=[place,address,lat,lng,type,vehicle,client,phone||null,instructions,closesAt||null];
+ const values=body.values===undefined?[]:body.values;
+ if(!Array.isArray(values)||values.length>100||values.some(v=>!v||!['custo','desconto'].includes(v.type)||typeof v.description!=='string'||!v.description.trim()||v.description.length>120||!Number.isFinite(Number(v.amount))||Number(v.amount)<0||Number(v.amount)>1000000)){sendJson(res,400,{error:'Custos e descontos inválidos.'});return true;}
+ const safeValues=values.map(v=>({type:v.type,description:v.description.trim(),amount:Math.round(Number(v.amount)*100)/100}));
+ const params=[place,address,lat,lng,type,vehicle,client,phone||null,instructions,closesAt||null,JSON.stringify(safeValues)];
  let id;
  if(req.method==='POST'){
-   const [result]=await pool.execute('INSERT INTO zap_order_entries (place,address,latitude,longitude,service_type,vehicle_type,client_name,client_phone,instructions,closes_at,owner_user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)',[...params,user.id]);
+   const [result]=await pool.execute('INSERT INTO zap_order_entries (place,address,latitude,longitude,service_type,vehicle_type,client_name,client_phone,instructions,closes_at,value_items,owner_user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',[...params,user.id]);
    id=result.insertId;
  } else {
    id=match[1];
-   const [result]=await pool.execute('UPDATE zap_order_entries SET place=?,address=?,latitude=?,longitude=?,service_type=?,vehicle_type=?,client_name=?,client_phone=?,instructions=?,closes_at=? WHERE id=? AND owner_user_id=?',[...params,id,user.id]);
+   const [result]=await pool.execute('UPDATE zap_order_entries SET place=?,address=?,latitude=?,longitude=?,service_type=?,vehicle_type=?,client_name=?,client_phone=?,instructions=?,closes_at=?,value_items=? WHERE id=? AND owner_user_id=?',[...params,id,user.id]);
    if(!result.affectedRows){sendJson(res,404,{error:'Pedido não encontrado para esta transportadora'});return true;}
  }
  const [rows]=await pool.execute('SELECT * FROM zap_order_entries WHERE id=? AND owner_user_id=?',[id,user.id]);
