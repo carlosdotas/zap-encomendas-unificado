@@ -529,8 +529,10 @@ async function googleAddressSearch(req,res,path) {
    const [known]=await pool.execute('SELECT place_id,name,address,latitude,longitude FROM zap_locations WHERE ABS(latitude-?)<0.00003 AND ABS(longitude-?)<0.00003 ORDER BY updated_at DESC LIMIT 1',[lat,lon]);
    if(known.length){const p=known[0];sendJson(res,200,{source:'maps-link',results:[{place_id:p.place_id,name:p.name,display_name:p.address,lat:Number(p.latitude),lon:Number(p.longitude)}]});return true}
    if(!parsed.term){
-    const label='Local compartilhado pelo Google Maps';
-    sendJson(res,200,{source:'maps-link',results:[{name:label,display_name:lat.toFixed(6)+', '+lon.toFixed(6),lat,lon}]});return true;
+    const label='Local compartilhado pelo Google Maps',address=lat.toFixed(6)+', '+lon.toFixed(6);
+    const [exists]=await pool.execute('SELECT id FROM zap_locations WHERE ABS(latitude-?)<0.00003 AND ABS(longitude-?)<0.00003 LIMIT 1',[lat,lon]);
+    if(!exists.length)await pool.execute("INSERT INTO zap_locations (place_id,name,address,latitude,longitude,source,expires_at) VALUES (NULL,?,?,?,?,'pedido',NULL)",[label,address,lat,lon]);
+    sendJson(res,200,{source:'maps-link',results:[{name:label,display_name:address,lat,lon}]});return true;
    }
   }
   if(!parsed.term){sendJson(res,422,{error:'O link não contém endereço ou coordenadas identificáveis.'});return true}
