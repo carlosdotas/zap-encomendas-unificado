@@ -194,15 +194,7 @@ function setSessionCookie(req,res,token,maxAge) {
   res.setHeader('Set-Cookie','zap_session='+token+'; Path=/; HttpOnly; SameSite=Lax; Max-Age='+maxAge+(secure?'; Secure':''));
 }
 
-function masterConfig(){const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');const password=process.env.MASTER_AUTH_PASSWORD||'';const secret=process.env.MASTER_AUTH_SECRET||'';return /^\d{10,11}$/.test(phone)&&password.length>=6&&Buffer.byteLength(secret)>=32?{phone,password,secret}:null;}
-function masterIdentity(role){return {id:'master',full_name:'Administrador mestre',phone:process.env.MASTER_AUTH_PHONE||'',role,vehicles:'moto,carro,utilitario',isMaster:true};}
-function masterSession(req){const config=masterConfig();if(!config)return null;const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('zap_master='));if(!cookie)return null;const parts=cookie.slice(11).split('.');if(parts.length!==2)return null;const expected=crypto.createHmac('sha256',config.secret).update(parts[0]).digest();let provided;try{provided=Buffer.from(parts[1],'base64url')}catch{return null}if(provided.length!==expected.length||!crypto.timingSafeEqual(provided,expected))return null;let data;try{data=JSON.parse(Buffer.from(parts[0],'base64url').toString())}catch{return null}if(!['motorista','transportadora'].includes(data.role)||!Number.isFinite(data.exp)||data.exp<Date.now())return null;return masterIdentity(data.role);}
-function setMasterCookie(req,res,role){const config=masterConfig();const payload=Buffer.from(JSON.stringify({role,exp:Date.now()+28800000,nonce:crypto.randomBytes(12).toString('hex')})).toString('base64url');const sig=crypto.createHmac('sha256',config.secret).update(payload).digest('base64url');const secure=req.socket.encrypted||req.headers['x-forwarded-proto']==='https';res.setHeader('Set-Cookie','zap_master='+payload+'.'+sig+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800'+(secure?'; Secure':''));}
-function clearMasterCookie(req,res){const secure=req.socket.encrypted||req.headers['x-forwarded-proto']==='https';res.setHeader('Set-Cookie','zap_master=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'+(secure?'; Secure':''));}
-function secureTextMatch(a,b){return crypto.timingSafeEqual(crypto.createHash('sha256').update(String(a)).digest(),crypto.createHash('sha256').update(String(b)).digest());}
-
 async function getSession(req) {
-  const master=masterSession(req);if(master)return master;
   if(!pool || !databaseStatus.ok) return null;
   const cookie=String(req.headers.cookie || '').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
   if(!cookie) return null;
@@ -211,7 +203,7 @@ async function getSession(req) {
   return rows[0] || null;
 }
 function publicUser(user) {
-  return {id:user.id,name:user.full_name,phone:user.phone,role:user.role,vehicles:(user.vehicles || '').split(',').filter(Boolean),...(user.isMaster?{isMaster:true}:{})};
+  return {id:user.id,name:user.full_name,phone:user.phone,role:user.role,vehicles:(user.vehicles || '').split(',').filter(Boolean)};
 }
 async function loginSession(req,res,user) {
   const token=crypto.randomBytes(32).toString('hex');
@@ -221,21 +213,12 @@ async function loginSession(req,res,user) {
   sendJson(res,200,{ok:true,user:publicUser(user)});
 }
 async function authRoutes(req,res,path) {
-  // Diagnostico sem credenciais: permite identificar configuracao ausente na hospedagem.
-  if(path==='/api/auth/master/status' && req.method==='GET'){
-    const phone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');
-    const password=process.env.MASTER_AUTH_PASSWORD||'';
-    const secret=process.env.MASTER_AUTH_SECRET||'';
-    const checks={phone: /^\d{10,11}$/.test(phone),password: password.length>=6,secret:Buffer.byteLength(secret)>=32};
-    sendJson(res,200,{masterAuth:{ready:Object.values(checks).every(Boolean),checks},databaseRequired:false});
-    return true;
-  }
   if(path==='/api/auth/me' && req.method==='GET') {
     const user=await getSession(req);
     sendJson(res,user?200:401,user?{ok:true,user:publicUser(user)}:{ok:false,error:'Sessão não encontrada'});
     return true;
   }
-  if(!['/api/auth/register','/api/auth/login','/api/auth/logout','/api/auth/master/switch-role'].includes(path) || req.method!=='POST') return false;
+  if(!['/api/auth/register','/api/auth/login','/api/auth/logout'].includes(path) || req.method!=='POST') return false;
   if(req.headers.origin) {
     let originHost='';
     try{originHost=new URL(req.headers.origin).host;}catch{}
@@ -245,14 +228,7 @@ async function authRoutes(req,res,path) {
   if(rateLimit(req,path)) {sendJson(res,429,{error:'Muitas tentativas. Aguarde 15 minutos.'});return true;}
   let body;
   try {body=await readBody(req)} catch(err) {sendJson(res,400,{error:'Corpo da requisição inválido.'});return true;}
-  if(path==='/api/auth/master/switch-role') {
-    const master=masterSession(req);
-    if(!master){sendJson(res,403,{error:'Somente o administrador mestre pode trocar de perfil.'});return true;}
-    if(!['motorista','transportadora'].includes(body.role)){sendJson(res,400,{error:'Perfil inválido.'});return true;}
-    setMasterCookie(req,res,body.role);sendJson(res,200,{ok:true,user:publicUser(masterIdentity(body.role))});return true;
-  }
   if(path==='/api/auth/logout') {
-    if(masterSession(req)){clearMasterCookie(req,res);sendJson(res,200,{ok:true});return true;}
     if(!pool||!databaseStatus.ok)await ensureDatabase();
     if(!pool||!databaseStatus.ok){setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;}
     const match=String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/);
@@ -260,27 +236,12 @@ async function authRoutes(req,res,path) {
     setSessionCookie(req,res,'',0);sendJson(res,200,{ok:true});return true;
   }
   const phone=phoneDigits(body.phone), password=body.password;
-  const master=masterConfig();
-  // A autenticacao mestre nunca consulta o MySQL, nem em caso de senha incorreta.
-  const masterPhone=phoneDigits(process.env.MASTER_AUTH_PHONE||'');
-  if(path==='/api/auth/login' && masterPhone.length>=10 && secureTextMatch(phone,masterPhone)){
-    if(!master){
-      sendJson(res,503,{error:'Acesso mestre não configurado. Verifique MASTER_AUTH_PHONE, MASTER_AUTH_PASSWORD e MASTER_AUTH_SECRET no servidor.'});return true;
-    }
-    if(typeof password!=='string'||!secureTextMatch(password,master.password)){
-      sendJson(res,401,{error:'Telefone ou senha incorretos.'});return true;
-    }
-    const role=body.role==='transportadora'?'transportadora':'motorista';
-    setMasterCookie(req,res,role);
-    sendJson(res,200,{ok:true,user:publicUser(masterIdentity(role))});return true;
-  }
   if(!pool||!databaseStatus.ok||migrationStatus!=='atualizado')await ensureDatabase();
   if(!pool||!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco de dados indisponível',diagnostic:databaseDiagnostics()});return true;}
   if(!/^\d{10,11}$/.test(phone) || typeof password!=='string' || password.length<6 || Buffer.byteLength(password)>256) {
     sendJson(res,400,{error:'Informe telefone com DDD e senha de pelo menos 6 caracteres.'});return true;
   }
   if(path==='/api/auth/register') {
-    if(master&&secureTextMatch(phone,master.phone)){sendJson(res,409,{error:'Telefone reservado para a administração.'});return true;}
     const name=String(body.name||'').trim().replace(/\s+/g,' ');
     const role=body.role==='transportadora'?'transportadora':'motorista';
     const vehicles=Array.isArray(body.vehicles)?body.vehicles.filter(v=>['moto','carro','utilitario'].includes(v)).slice(0,3):[];
@@ -318,7 +279,6 @@ async function quickClientRoutes(req,res,path){
  if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true;}
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para acessar clientes'});return true;}
- if(user.isMaster){sendJson(res,403,{error:'Acesso mestre em modo de visualização. Use uma conta real para gerenciar clientes.'});return true;}
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Acesso restrito a transportadoras'});return true;}
  if(req.method==='GET'){
   const [rows]=await pool.execute('SELECT id,name,contact_name,document_number,phone,address,latitude,longitude FROM zap_quick_clients WHERE owner_user_id=? ORDER BY id DESC LIMIT 500',[user.id]);
@@ -348,7 +308,6 @@ async function orderRoutes(req,res,path) {
  if(!databaseStatus.ok || migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível',diagnostic:databaseDiagnostics()});return true;}
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para gerenciar pedidos'});return true;}
- if(user.isMaster){sendJson(res,403,{error:'Acesso mestre em modo de visualização. Use uma conta real para gerenciar pedidos.'});return true;}
  if(req.method==='GET' && path==='/api/orders' && user.role==='motorista'){
    const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE o.status='aguardando_motorista' ORDER BY o.created_at ASC LIMIT 500");
    sendJson(res,200,{orders:rows.map(row=>({...mapOrder(row),carrier:row.carrier_name||'Transportadora'}))});return true;
@@ -391,7 +350,7 @@ async function locationAliasRoutes(req,res,path){
  await ensureDatabase();
  if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true;}
  const user=await getSession(req);
- if(!user||user.isMaster||user.role!=='transportadora'){sendJson(res,403,{error:'Use uma conta de transportadora real para nomear locais.'});return true;}
+ if(!user||user.role!=='transportadora'){sendJson(res,403,{error:'Use uma conta de transportadora real para nomear locais.'});return true;}
  if(req.headers.origin){let origin='';try{origin=new URL(req.headers.origin).host}catch{}const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}}
  let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true;}
  const name=String(body.name||'').trim(),address=String(body.address||'').trim(),placeId=String(body.place_id||'').trim()||null,lat=Number(body.lat),lng=Number(body.lng);
@@ -416,7 +375,7 @@ async function googleAddressSearch(req,res,path) {
  const where=terms.map(()=>"(LOWER(name) LIKE ? OR LOWER(address) LIKE ?)").join(' AND ');
  const params=terms.flatMap(t=>['%'+t+'%','%'+t+'%']);
  const user=await getSession(req);
- if(user?.role==='transportadora'&&!user.isMaster){
+ if(user?.role==='transportadora'){
   const aliasWhere=terms.map(()=>"(LOWER(custom_name) LIKE ? OR LOWER(address) LIKE ?)").join(' AND ');
   const [aliases]=await pool.execute('SELECT place_id,custom_name,address,latitude,longitude FROM zap_location_aliases WHERE owner_user_id=? AND '+aliasWhere+' ORDER BY updated_at DESC LIMIT 8',[user.id,...params]);
   if(aliases.length){sendJson(res,200,{source:'custom',results:aliases.map(p=>({place_id:p.place_id,name:p.custom_name,display_name:p.address,lat:Number(p.latitude),lon:Number(p.longitude)}))});return true;}
