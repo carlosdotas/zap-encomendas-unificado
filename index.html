@@ -715,13 +715,8 @@ const demoRequests=[
 {lat:-16.6990,lng:-49.2960,place:'Loja do Celular',carrier:'Zap Transportes',vehicle:'carro',type:'troca',instructions:'Falar com o vendedor antes de retirar.'},
 {lat:-16.6570,lng:-49.2690,place:'Armazém Popular',carrier:'Logística Goiás',vehicle:'utilitario',type:'entrega',instructions:'Entregar na portaria do prédio.'}];
 // Somente pedidos efetivamente cadastrados pela transportadora entram nas chamadas.
-function loadRegisteredRequests(){
- try{
-  const stored=JSON.parse(localStorage.getItem('zap_carrier_orders')||'[]');
-  if(!Array.isArray(stored))return [];
-  return stored.filter(o=>o&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lng))&&['moto','carro','utilitario'].includes(o.vehicle)&&['coleta','entrega','troca'].includes(o.type)&&o.status!=='Concluído'&&o.status!=='Cancelado').map(o=>({...o,lat:Number(o.lat),lng:Number(o.lng),place:String(o.place||'Local cadastrado'),carrier:String(o.carrier||'Transportadora'),closesAt:o.closesAt||'--:--',requestId:String(o.id)}));
- }catch{return []}
-}
+// Pedidos são recebidos do MySQL via /api/orders; não usar armazenamento local como fonte.
+function loadRegisteredRequests(){return [];}
 demoRequests.forEach((job,i)=>{job.closesAt=['17:30','18:00','19:00'][i%3]});
 const markerSymbols={
 moto:'<circle cx="5" cy="17" r="2.6"/><circle cx="19" cy="17" r="2.6"/><path d="M7.5 17 11 10h3l4.2 7M9 11l-2-3h3m4-2h3l2 3M11 10l-2 7h7"/>',
@@ -780,8 +775,20 @@ function captureCamera(){const v=cameraVideoRef.current;if(!v?.videoWidth){setCa
 function loadCameraFile(e){const files=Array.from(e.target.files||[]);if(!files.length)return;const valid=files.filter(file=>file.type.startsWith('image/')&&file.size<=15*1024*1024);if(valid.length!==files.length)setCameraError('Alguns arquivos não são imagens ou ultrapassam 15 MB.');valid.forEach(file=>{const reader=new FileReader();reader.onload=()=>addCameraImage(String(reader.result));reader.onerror=()=>setCameraError('Não foi possível carregar uma imagem.');reader.readAsDataURL(file)});e.target.value=''}
 function confirmCameraAction(){if(cameraJob.type!=='entrega'&&!cameraImages.length){setCameraError('Para coleta e troca, adicione pelo menos uma foto antes de confirmar.');return}const action=({coleta:'Coleta',entrega:'Entrega',troca:'Troca'})[cameraJob.type];const record={action,driver:profile.name||'Motorista',time:new Date().toLocaleString('pt-BR'),place:cameraJob.place,carrier:cameraJob.carrier,type:cameraJob.type,vehicle:cameraJob.vehicle,closesAt:cameraJob.closesAt,photoCount:cameraImages.length};const next={...completedRef.current,[cameraJob.place]:record};completedRef.current=next;setCompletedJobs(next);refreshRef.current?.();setToast(action+' registrada'+(cameraImages.length?' com '+cameraImages.length+' foto(s)':' sem foto')+'. Marcador substituído por X.');closeCamera()}
 useEffect(()=>{if(!selectedJob&&!completedDetail)return;const onOutsideClick=(event)=>{const target=event.target;if(!(target instanceof Element))return;if(target.closest('.job-modal'))return;if(target.closest('.leaflet-marker-icon'))return;setSelectedJob(null);setCompletedDetail(null);setNavMenuOpen(false)};document.addEventListener('click',onOutsideClick);return()=>document.removeEventListener('click',onOutsideClick)},[selectedJob,completedDetail]);
-const [registeredRequests,setRegisteredRequests]=useState(loadRegisteredRequests);
-useEffect(()=>{const sync=e=>{if(!e||e.key==='zap_carrier_orders')setRegisteredRequests(loadRegisteredRequests())};window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync)},[]);
+const [registeredRequests,setRegisteredRequests]=useState([]);
+useEffect(()=>{
+ let active=true;
+ async function refreshOrders(){
+  try{
+   const response=await fetch('/api/orders',{credentials:'same-origin',cache:'no-store'});
+   const data=await response.json();
+   if(!response.ok)throw Error(data.error||'Não foi possível carregar pedidos');
+   if(active)setRegisteredRequests((data.orders||[]).filter(o=>o.status==='Aguardando motorista'&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lng))).map(o=>({...o,lat:Number(o.lat),lng:Number(o.lng),requestId:String(o.id),closesAt:'--:--'})));
+  }catch(err){if(active)setToast(err.message||'Falha ao consultar pedidos');}
+ }
+ refreshOrders();const timer=setInterval(refreshOrders,12000);
+ return()=>{active=false;clearInterval(timer)};
+},[]);
 const [incomingCall,setIncomingCall]=useState(null);const [callExpanded,setCallExpanded]=useState(false);const calledPlacesRef=useRef(new Set());const acceptedPlacesRef=useRef(new Set());const callAudioRef=useRef(null);
 function stopCallSound(){if(callAudioRef.current){clearInterval(callAudioRef.current.timer);try{callAudioRef.current.ctx.close()}catch{}callAudioRef.current=null}}
 function playCallSound(){stopCallSound();try{const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;const ctx=new AudioContext();function beep(){if(ctx.state==='closed')return;const now=ctx.currentTime;[0,.22].forEach(offset=>{const oscillator=ctx.createOscillator(),gain=ctx.createGain();oscillator.type='sine';oscillator.frequency.value=740;gain.gain.setValueAtTime(.0001,now+offset);gain.gain.exponentialRampToValueAtTime(.12,now+offset+.025);gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.17);oscillator.connect(gain);gain.connect(ctx.destination);oscillator.start(now+offset);oscillator.stop(now+offset+.18)})}ctx.resume().then(beep).catch(()=>{});callAudioRef.current={ctx,timer:setInterval(beep,1700)}}catch{}}
