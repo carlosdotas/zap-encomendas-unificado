@@ -22,6 +22,48 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/uri-list" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="geo" />
+                <data android:scheme="google.navigation" />
+                <data android:scheme="waze" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="maps.app.goo.gl" />
+                <data android:host="maps.google.com" />
+                <data android:host="maps.google.com.br" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="www.google.com" android:pathPrefix="/maps" />
+                <data android:host="google.com" android:pathPrefix="/maps" />
+                <data android:host="www.google.com.br" android:pathPrefix="/maps" />
+                <data android:host="google.com.br" android:pathPrefix="/maps" />
+                <data android:host="goo.gl" android:pathPrefix="/maps" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="waze.com" android:pathPrefix="/ul" />
+                <data android:host="www.waze.com" android:pathPrefix="/ul" />
+            </intent-filter>
 
         </activity>
 

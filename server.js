@@ -11,6 +11,7 @@ const crypto = require('node:crypto');
 const {WebSocketServer,WebSocket}=require('ws');
 const nativePush=require('./native-push');
 const {apkDownload}=require('./apk-download');
+const locationInput=require('./location-input');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -509,48 +510,28 @@ async function savedPlacesRoutes(req,res,path){
  sendJson(res,200,{results});return true;
 }
 
-function mapsUrlFromInput(value){
- const match=String(value||'').match(/https?:\/\/[^\s<>\])]+/i);
- if(!match)return null;
- try{
-  const url=new URL(match[0].replace(/[.,;]+$/,''));
-  const host=url.hostname.toLowerCase();
-  if(!['maps.app.goo.gl','goo.gl','maps.google.com','www.google.com','google.com','www.google.com.br','google.com.br'].includes(host))return null;
-  if(host==='goo.gl'&&!url.pathname.startsWith('/maps'))return null;
-  if((host.includes('google.com')||host.includes('google.com.br'))&&!(/\/maps|^\/\?/.test(url.pathname)))return null;
-  return url;
- }catch{return null}
-}
+function mapsUrlFromInput(value){return locationInput.mapsURL(value);}
 async function expandMapsUrl(url){
  let current=url;
  for(let i=0;i<5;i++){
+  if(locationInput.parse(current.href)?.kind==='coordinates')return current;
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
   try{
    const response=await fetch(current.href,{redirect:'manual',signal:controller.signal,headers:{'User-Agent':'Mozilla/5.0 ZapEncomendas/1.0'}});
    const next=response.headers.get('location');
+   if(response.body)response.body.cancel().catch(()=>{});
    if(!next||![301,302,303,307,308].includes(response.status))return current;
    const target=new URL(next,current);
-   if(target.protocol!=='https:'||!mapsUrlFromInput(target.href))throw Error('Redirecionamento fora do Google Maps');
+   if(['geo:','waze:','google.navigation:'].includes(target.protocol)&&locationInput.parse(target.href)?.kind==='coordinates')return target;
+   if(target.protocol!=='https:'||!mapsUrlFromInput(target.href))throw Error('Redirecionamento fora dos serviços de mapas permitidos');
    current=target;
   }finally{clearTimeout(timer)}
  }
  return current;
 }
 function parseMapsLocation(url){
- const decoded=decodeURIComponent(url.href.replace(/\+/g,'%20'));
- const candidates=[
-  decoded.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/),
-  decoded.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/),
-  decoded.match(/[?&](?:q|ll|query|center)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
- ];
- const coords=candidates.find(Boolean);
- let lat=coords?Number(coords[1]):null,lon=coords?Number(coords[2]):null;
- if(lat!==null&&(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)){lat=null;lon=null}
- const placePath=decoded.match(/\/maps\/place\/([^/?@]+)/);
- const name=placePath?placePath[1].replace(/\+/g,' ').trim():'';
- const q=url.searchParams.get('q')||url.searchParams.get('query')||'';
- const term=(name||(!/^[-\d.,\s]+$/.test(q)?q:'')).slice(0,180);
- return {lat,lon,term};
+ const parsed=locationInput.parse(url.href);
+ return {lat:parsed?.kind==='coordinates'?parsed.lat:null,lon:parsed?.kind==='coordinates'?parsed.lon:null,term:parsed?.kind==='coordinates'&&parsed.name!=='Localização compartilhada'?parsed.name:parsed?.term||(parsed?.kind==='address'?parsed.query:'')};
 }
 async function googleAddressSearch(req,res,path) {
  if(path!=='/api/maps/search' || req.method!=='GET')return false;
@@ -562,13 +543,13 @@ async function googleAddressSearch(req,res,path) {
  if(!databaseStatus.ok || migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco de locais indisponível',diagnostic:databaseDiagnostics()});return true;}
  if(mapsUrl){
   let expanded,parsed;
-  try{expanded=await expandMapsUrl(mapsUrl);parsed=parseMapsLocation(expanded)}catch(err){sendJson(res,422,{error:'Não foi possível abrir o link do Maps. Confira se ele é público e válido.'});return true}
+  try{expanded=await expandMapsUrl(mapsUrl);parsed=parseMapsLocation(expanded)}catch(err){sendJson(res,422,{error:'Não foi possível abrir o link de localização. Confira se ele é público e válido.'});return true}
   if(parsed.lat!==null){
    const lat=parsed.lat,lon=parsed.lon;
    const [known]=await pool.execute('SELECT place_id,name,address,latitude,longitude FROM zap_locations WHERE ABS(latitude-?)<0.00003 AND ABS(longitude-?)<0.00003 ORDER BY updated_at DESC LIMIT 1',[lat,lon]);
    if(known.length){const p=known[0];sendJson(res,200,{source:'maps-link',results:[{place_id:p.place_id,name:p.name,display_name:p.address,lat:Number(p.latitude),lon:Number(p.longitude)}]});return true}
-   if(!parsed.term){
-    const label='Local compartilhado pelo Google Maps',address=lat.toFixed(6)+', '+lon.toFixed(6);
+   {
+    const label=parsed.term||'Localização compartilhada',address=lat.toFixed(6)+', '+lon.toFixed(6);
     const [exists]=await pool.execute('SELECT id FROM zap_locations WHERE ABS(latitude-?)<0.00003 AND ABS(longitude-?)<0.00003 LIMIT 1',[lat,lon]);
     if(!exists.length)await pool.execute("INSERT INTO zap_locations (place_id,name,address,latitude,longitude,source,expires_at) VALUES (NULL,?,?,?,?,'pedido',NULL)",[label,address,lat,lon]);
     sendJson(res,200,{source:'maps-link',results:[{name:label,display_name:address,lat,lon}]});return true;
@@ -708,8 +689,8 @@ const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
   if (apkDownload(req,res,path)) return;
-  if ((req.method==='GET'||req.method==='HEAD')&&path==='/navigation.js') {
-    const script=fs.readFileSync(pathModule.join(__dirname,'navigation.js'));
+  if ((req.method==='GET'||req.method==='HEAD')&&['/navigation.js','/location-input.js','/shared-location.js'].includes(path)) {
+    const script=fs.readFileSync(pathModule.join(__dirname,path.slice(1)));
     res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
     res.end(req.method==='HEAD'?undefined:script);return;
   }

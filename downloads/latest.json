@@ -1,9 +1,9 @@
 {
-  "version": "1.0.8",
-  "versionCode": 9,
-  "filename": "zap-encomendas-9.apk",
-  "bytes": 5188422,
-  "sha256": "b82454ab6298c65c047980bffae927318ba533d4827d2ae50ab61c9a69b99c33",
-  "builtAt": "2026-11-08T19:21:43.617Z",
+  "version": "1.0.10",
+  "versionCode": 11,
+  "filename": "zap-encomendas-11.apk",
+  "bytes": 5192775,
+  "sha256": "30cf3f4978cf457d0b234076964ca9bab453dc0e30e8ab861c4b22cfbae7d09e",
+  "builtAt": "2026-11-08T19:46:24.968Z",
   "url": "/downloads/zap-encomendas.apk"
 }

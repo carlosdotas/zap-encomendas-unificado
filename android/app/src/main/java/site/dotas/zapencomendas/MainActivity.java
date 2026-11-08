@@ -19,7 +19,14 @@ import java.util.*;
 
 public class MainActivity extends BridgeActivity {
     private boolean pendingStart=false, registered=false, permissionDialog=false, permissionRequestInFlight=false;
-    private boolean backRequestInFlight=false;
+    private boolean backRequestInFlight=false,shareIntentHandled=false;
+    @Override protected void onCreate(Bundle saved){
+        if(saved!=null&&saved.getBoolean("zap_share_intent_handled",false)){
+            shareIntentHandled=true;setIntent(new Intent(this,MainActivity.class).setAction(Intent.ACTION_MAIN));
+        }
+        super.onCreate(saved);
+    }
+    @Override public void onSaveInstanceState(Bundle state){state.putBoolean("zap_share_intent_handled",shareIntentHandled);super.onSaveInstanceState(state);}
     private final BroadcastReceiver events=new BroadcastReceiver(){public void onReceive(Context c,Intent i){dispatch(i.getStringExtra("type"),i.getStringExtra("data"));}};
     @Override protected void load(){
         super.load();
@@ -52,12 +59,17 @@ public class MainActivity extends BridgeActivity {
         if(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))WebViewCompat.addWebMessageListener(bridge.getWebView(),"ZapNative",origins,(view,message,origin,main,reply)->{
             if(!main)return;
             try {JSONObject m=new JSONObject(message.getData());String type=m.optString("type");
-                if(type.equals("start")){pendingStart=true;prepareDriver();}
+                if(type.equals("location_ready")){deliverSharedLocation();}
+                else if(type.equals("location_ack")){
+                    String stored=getSharedPreferences("shared_location",MODE_PRIVATE).getString("pending",null);
+                    if(stored!=null&&new JSONObject(stored).optString("id").equals(m.optString("id")))getSharedPreferences("shared_location",MODE_PRIVATE).edit().remove("pending").apply();
+                }
+                else if(type.equals("start")){pendingStart=true;prepareDriver();}
                 else if(type.equals("stop")){pendingStart=false;stopService(new Intent(this,DriverService.class));}
                 else if(type.equals("send")){Intent i=new Intent(this,DriverService.class).setAction("send").putExtra("data",m.getString("data"));if(DriverService.running)startService(i);}
             }catch(Exception ignored){}
         });
-        for(String asset:new String[]{"navigation.js","driver-bridge.js"}){
+        for(String asset:new String[]{"navigation.js","location-input.js","shared-location.js","driver-bridge.js"}){
             try(java.io.InputStream in=getAssets().open(asset)){
                 java.io.ByteArrayOutputStream buffer=new java.io.ByteArrayOutputStream();
                 byte[] bytes=new byte[4096];int count;while((count=in.read(bytes))!=-1)buffer.write(bytes,0,count);
@@ -66,6 +78,34 @@ public class MainActivity extends BridgeActivity {
             }catch(Exception e){throw new IllegalStateException(e);}
         }
         bridge.getWebView().reload();
+    }
+    @Override protected void onNewIntent(Intent intent){
+        super.onNewIntent(intent);
+        if(intent==null)return;
+        String text=null;
+        if(Intent.ACTION_SEND.equals(intent.getAction())){
+            CharSequence shared=intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+            if(shared!=null)text=shared.toString();
+        }else if(Intent.ACTION_VIEW.equals(intent.getAction())&&intent.getData()!=null){text=intent.getData().toString();}
+        if(text==null||text.trim().isEmpty()||text.length()>2000)return;
+        try{
+            JSONObject payload=new JSONObject().put("id",UUID.randomUUID().toString()).put("text",text.trim()).put("receivedAt",System.currentTimeMillis());
+            getSharedPreferences("shared_location",MODE_PRIVATE).edit().putString("pending",payload.toString()).apply();
+            // Clear consumed intent data so a recreation does not create a duplicate share.
+            shareIntentHandled=true;
+            Intent clean=new Intent(this,MainActivity.class).setAction(Intent.ACTION_MAIN);setIntent(clean);
+            deliverSharedLocation();
+        }catch(Exception ignored){}
+    }
+    private void deliverSharedLocation(){
+        if(bridge==null)return;
+        String stored=getSharedPreferences("shared_location",MODE_PRIVATE).getString("pending",null);if(stored==null)return;
+        try{
+            JSONObject payload=new JSONObject(stored);
+            if(System.currentTimeMillis()-payload.optLong("receivedAt")>2*60*60*1000L){getSharedPreferences("shared_location",MODE_PRIVATE).edit().remove("pending").apply();return;}
+            String data=payload.toString();
+            bridge.getWebView().evaluateJavascript("window.ZapSharedLocation&&window.ZapSharedLocation.receive("+data+")",null);
+        }catch(Exception ignored){}
     }
     private boolean granted(String p){return ContextCompat.checkSelfPermission(this,p)==PackageManager.PERMISSION_GRANTED;}
     private void explain(String text,Runnable next){if(permissionDialog)return;permissionDialog=true;new AlertDialog.Builder(this).setTitle("Jornada do motorista").setMessage(text).setPositiveButton("Continuar",(d,w)->{permissionDialog=false;next.run();}).setNegativeButton("Agora não",(d,w)->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");}).setCancelable(true).setOnCancelListener(d->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");}).show();}
@@ -140,6 +180,6 @@ public class MainActivity extends BridgeActivity {
             .setCancelable(true).setOnCancelListener(d->{permissionDialog=false;pendingStart=false;dispatch("offline","{}");}).show();
     }
     @Override public void onStart(){super.onStart();if(!registered){ContextCompat.registerReceiver(this,events,new IntentFilter(DriverService.EVENT),ContextCompat.RECEIVER_NOT_EXPORTED);registered=true;}}
-    @Override public void onResume(){super.onResume();if(bridge!=null){if(pendingStart)bridge.getWebView().postDelayed(this::prepareDriver,400);if(DriverService.connected)dispatch("open","{}");if(DriverService.running)DriverService.replay(this);}}
+    @Override public void onResume(){super.onResume();if(bridge!=null){deliverSharedLocation();if(pendingStart)bridge.getWebView().postDelayed(this::prepareDriver,400);if(DriverService.connected)dispatch("open","{}");if(DriverService.running)DriverService.replay(this);}}
     @Override public void onDestroy(){if(registered)unregisterReceiver(events);super.onDestroy();}
 }

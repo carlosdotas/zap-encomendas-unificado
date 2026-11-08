@@ -220,3 +220,48 @@ para receber o botão Voltar do Android. As solicitações nativas de permissão
 podem ser canceladas com Voltar, mantendo o motorista offline.
 
 Teste da prioridade de fechamento e do histórico: `node test/navigation.test.js`.
+
+### Receber uma localização e abrir um pedido
+
+No Maps ou no Waze, use **Compartilhar → Zap Encomendas**. O APK recebe texto com
+links de localização e também pode ser escolhido para abrir URIs `geo:`,
+`google.navigation:` e `waze:`. O Android decide quais aplicativos aparecem ao
+abrir links HTTPS; compartilhar o link pelo menu Android funciona sem verificar
+a propriedade dos domínios Google/Waze.
+
+Com uma conta de transportadora autenticada, o aplicativo abre o formulário de
+novo pedido com o ponto no mapa, a localização selecionada e a busca preenchida.
+Links curtos são resolvidos pela API existente de locais; coordenadas explícitas
+são usadas diretamente. Colar coordenadas ou um link GPS na busca do site segue
+o mesmo fluxo. O pedido só é criado ao tocar em **Cadastrar pedido**.
+
+Se for necessário fazer login, o local permanece pendente e é aplicado depois
+do acesso. Uma conta de motorista não é convertida em transportadora nem recebe
+permissão para criar pedidos. Se já houver um pedido em edição, o novo local
+fica disponível com o botão **Abrir novo pedido**, preservando o rascunho até
+uma ação explícita. Fechar a pendência cancela sua aplicação, inclusive quando
+uma resolução de link ainda está em andamento.
+
+A entrada pendente expira após duas horas. O Android mantém a pendência em
+armazenamento privado até a página confirmar a seleção do local; a página
+preserva a entrada durante o login/recarregamento. Reentregas do mesmo evento
+não abrem pedidos duplicados. URLs de outros serviços e coordenadas fora dos
+limites são recusadas. Não é necessário conceder acesso ao GPS do aparelho para
+importar um ponto que já foi compartilhado por outro aplicativo.
+
+Publique também `location-input.js`, `shared-location.js`, `index.html` e
+`server.js`. Os dois scripts são usados tanto pelo site quanto pela ponte do
+APK. A busca de endereços sem coordenadas continua dependendo do banco/Google
+Places configurados na hospedagem.
+
+Testes: `node test/location-input.test.js`, `node test/shared-location.test.js`
+e `node test/maps-redirect.test.js`. Para testar em aparelho:
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d 'geo:0,0?q=-15.7942,-47.8822' -n site.dotas.zapencomendas/.MainActivity
+adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT 'https://waze.com/ul?ll=-15.7942%2C-47.8822' -n site.dotas.zapencomendas/.MainActivity
+```
+
+Repita com o app fechado, aberto e antes do login. Os testes de interface usam
+compartilhamentos simulados; a recepção por outro aplicativo em um aparelho
+Android físico ainda precisa ser validada.
