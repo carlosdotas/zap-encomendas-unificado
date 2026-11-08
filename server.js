@@ -595,12 +595,12 @@ const callSockets=new Map(),callQueues=new Map();
 const callWss=new WebSocketServer({noServer:true});
 const callVehicleLevel={moto:1,carro:2,utilitario:3};
 function callSend(ws,data){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(data))}
-function eligibleCallDrivers(vehicle){return [...callSockets.entries()].filter(([id,sockets])=>[...sockets].some(ws=>ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[vehicle])).map(([id])=>id)}
+function eligibleCallDrivers(vehicle,orderId){return [...callSockets.entries()].filter(([id,sockets])=>![...callQueues.values()].some(q=>q.order.id!==orderId&&q.driverId===id)&&[...sockets].some(ws=>ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[vehicle])).map(([id])=>id)}
 function stopOffer(queue){if(queue.timer)clearTimeout(queue.timer);queue.timer=null;if(queue.driverId){for(const ws of callSockets.get(queue.driverId)||[])callSend(ws,{type:'call_end',orderId:queue.order.id});}queue.driverId=null}
 function nextOffer(queue){
  if(!callQueues.has(queue.order.id))return;
  stopOffer(queue);
- const drivers=eligibleCallDrivers(queue.order.vehicle);
+ const drivers=eligibleCallDrivers(queue.order.vehicle,queue.order.id);
  if(!drivers.length){queue.timer=setTimeout(()=>nextOffer(queue),3000);return}
  const next=drivers.find(id=>!queue.tried.has(id));
  if(!next){queue.tried.clear();queue.timer=setTimeout(()=>nextOffer(queue),1000);return}
@@ -620,11 +620,11 @@ callWss.on('connection',(ws,req,user)=>{
  ws.userId=String(user.id);ws.vehicle=null;let sockets=callSockets.get(ws.userId);if(!sockets){sockets=new Set();callSockets.set(ws.userId,sockets)}sockets.add(ws);
  ws.on('message',async raw=>{
   let msg;try{msg=JSON.parse(String(raw))}catch{return}
-  if(msg.type==='online'&&callVehicleLevel[msg.vehicle]&&(user.vehicles||'').split(',').includes(msg.vehicle)){ws.vehicle=msg.vehicle;for(const q of callQueues.values())if(!q.driverId){clearTimeout(q.timer);nextOffer(q)}recoverPendingCalls().catch(err=>console.error('[CALL RECOVER]',err.message));return}
+  if(msg.type==='online'&&callVehicleLevel[msg.vehicle]&&(user.vehicles||'').split(',').includes(msg.vehicle)){ws.vehicle=msg.vehicle;callSend(ws,{type:'call_ready'});for(const q of callQueues.values())if(!q.driverId){clearTimeout(q.timer);nextOffer(q)}recoverPendingCalls().catch(err=>console.error('[CALL RECOVER]',err.message));return}
   if(msg.type==='offline'){ws.vehicle=null;for(const q of callQueues.values())if(q.driverId===ws.userId)nextOffer(q);return}
   if(!['accept','reject'].includes(msg.type))return;
   const id=String(msg.orderId||''),q=callQueues.get(id);
-  if(!/^\d+$/.test(id)||!q||q.driverId!==ws.userId||!ws.vehicle)return;
+  if(!/^\d+$/.test(id)||!q||q.driverId!==ws.userId||!ws.vehicle){callSend(ws,{type:'call_error',orderId:id,message:'Esta chamada não está mais disponível.'});return}
   if(msg.type==='reject'){nextOffer(q);return}
   try{
    const [result]=await pool.execute("UPDATE zap_order_entries SET status='aceito',driver_id=? WHERE id=? AND status='aguardando_motorista'",[user.id,id]);
@@ -633,7 +633,7 @@ callWss.on('connection',(ws,req,user)=>{
    for(const socket of callSockets.get(ws.userId)||[])callSend(socket,{type:'call_accepted',order:q.order});
   }catch(err){console.error('[CALL ACCEPT]',err.message);callSend(ws,{type:'call_error',orderId:id,message:'Não foi possível aceitar o pedido.'})}
  });
- ws.on('close',()=>{sockets.delete(ws);if(!sockets.size)callSockets.delete(ws.userId);for(const q of callQueues.values())if(q.driverId===ws.userId&&!eligibleCallDrivers(q.order.vehicle).includes(ws.userId))nextOffer(q)});
+ ws.on('close',()=>{sockets.delete(ws);if(!sockets.size)callSockets.delete(ws.userId);for(const q of callQueues.values())if(q.driverId===ws.userId&&![...sockets].some(peer=>peer.readyState===WebSocket.OPEN&&callVehicleLevel[peer.vehicle]>=callVehicleLevel[q.order.vehicle]))nextOffer(q)});
 });
 
 const server = http.createServer(async (req,res) => {
