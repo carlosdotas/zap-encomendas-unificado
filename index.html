@@ -501,7 +501,7 @@
 
 /* V10: resultados de endereço selecionáveis diretamente no mapa. */
 .zap-search-result-icon{background:transparent!important;border:0!important;overflow:visible!important}
-.zap-search-result-icon span{display:grid;place-items:center;width:35px;height:35px;background:#f58220;color:white;border:3px solid white;border-radius:50% 50% 50% 3px;box-shadow:0 3px 12px #102b4280;font-size:0;position:relative}
+.zap-search-result-icon span{display:grid;place-items:center;width:36px;height:44px;box-sizing:border-box;padding-bottom:9px;background:#f58220;color:white;border:3px solid white;clip-path:polygon(50% 100%,5% 48%,5% 30%,15% 12%,32% 3%,68% 3%,85% 12%,95% 30%,95% 48%);filter:drop-shadow(0 2px 3px #102b4280);font-size:0;position:relative}
 .zap-search-result-icon span::after{content:attr(data-label);font-size:14px}
 .zap-search-result-icon span{font-size:14px;line-height:1;font-weight:900;text-shadow:0 1px 1px #0003}
 .carrier-search-results{max-height:min(148px,24dvh);overflow-y:auto;margin-top:6px;border-radius:10px}
@@ -1061,11 +1061,11 @@ function CarrierDashboard({onBack}){
    const fullAddress=String(place.display_name||place.address||'').trim();
    const shortName=String(place.name||fullAddress.split(',')[0]||'Local').trim();
    const address=fullAddress.toLocaleLowerCase('pt-BR').startsWith(shortName.toLocaleLowerCase('pt-BR')+',')?fullAddress.slice(shortName.length+1).trim():fullAddress===shortName?'':fullAddress;
-   const pin=L.divIcon({className:'zap-search-result-icon',html:'<span>'+String(index+1)+'</span>',iconSize:[36,44],iconAnchor:[18,42]});
+   const pin=L.divIcon({className:'zap-search-result-icon',html:'<span>'+String(index+1)+'</span>',iconSize:[36,44],iconAnchor:[18,44],tooltipAnchor:[0,-25]});
    const marker=L.marker([lat,lng],{icon:pin,zIndexOffset:1100,title:shortName,keyboard:true});
    marker.on('click',()=>choose(place));
    const tooltipHtml='<div class="zap-map-place-label"><strong>'+safeText(shortName)+'</strong>'+(address?'<small>'+safeText(address)+'</small>':'')+'</div>';
-   marker.bindTooltip(tooltipHtml,{direction:'right',offset:[12,-20],opacity:1,permanent:true,interactive:true,className:'zap-map-place-tooltip'});
+   marker.bindTooltip(tooltipHtml,{direction:'right',offset:[12,0],opacity:1,permanent:true,interactive:true,className:'zap-map-place-tooltip'});
    marker.on('tooltipopen',event=>{const label=event.tooltip.getElement();if(!label)return;label.setAttribute('role','button');label.setAttribute('tabindex','0');label.setAttribute('aria-label','Selecionar '+shortName);L.DomEvent.disableClickPropagation(label);L.DomEvent.on(label,'click',()=>choose(place));L.DomEvent.on(label,'keydown',event=>{if(event.key==='Enter'||event.key===' '){L.DomEvent.stop(event);choose(place)}})});
    marker.addTo(layer);bounds.push([lat,lng]);
   });
