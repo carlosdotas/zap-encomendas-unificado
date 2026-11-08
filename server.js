@@ -401,9 +401,19 @@ async function googleAddressSearch(req,res,path) {
  }catch(err){console.error('[MAPS]',err.code||err.name||'ERROR');sendJson(res,502,{error:'Não foi possível consultar o Google Maps agora.'});return true;}
 }
 
+// Chave pública restrita por HTTP referrer para o SDK Google Maps no navegador.
+// Nunca reutilizar GOOGLE_MAPS_API_KEY (chave privada do servidor).
+function mapsBrowserConfig(req,res,path){
+ if(req.method!=='GET'||path!=='/api/maps/browser-config')return false;
+ const key=process.env.GOOGLE_MAPS_BROWSER_KEY||'';
+ if(!key){sendJson(res,503,{error:'Configure GOOGLE_MAPS_BROWSER_KEY e habilite Maps JavaScript API no Google Cloud.'});return true;}
+ sendJson(res,200,{apiKey:key,language:'pt-BR',region:'BR'});return true;
+}
+
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
+  if (mapsBrowserConfig(req,res,path)) return;
   if (await locationAliasRoutes(req,res,path)) return;
   if (await googleAddressSearch(req,res,path)) return;
   if (await quickClientRoutes(req,res,path)) return;
