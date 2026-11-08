@@ -116,6 +116,7 @@ async function connectAndMigrate() {
     }
     await reconcileAuthSchema();
     await pool.query("INSERT INTO carriers (id,name) VALUES (1,'Zap Encomendas') ON DUPLICATE KEY UPDATE id=id");
+    await provisionInitialAdmin();
     databaseStatus = {ok:true, message:'MySQL conectado e estrutura verificada', checkedAt:new Date().toISOString()};
     migrationStatus = 'atualizado';
     lastDatabaseError = null;
@@ -125,6 +126,28 @@ async function connectAndMigrate() {
     lastDatabaseError = safeErrorCode(err);
     console.error('[MYSQL]', err.code || 'ERROR', err.message);
   }
+}
+
+async function provisionInitialAdmin(){
+ const phone=phoneDigits(process.env.ADMIN_PHONE||'');
+ const password=process.env.ADMIN_PASSWORD||'';
+ const name=String(process.env.ADMIN_NAME||'Administrador').trim();
+ if(!process.env.ADMIN_PHONE&&!process.env.ADMIN_PASSWORD)return;
+ if(!/^\d{10,11}$/.test(phone)||typeof password!=='string'||password.length<12||Buffer.byteLength(password)>256||name.length<3||name.length>160){
+  console.error('[ADMIN] Credenciais iniciais inválidas: informe ADMIN_PHONE com DDD, ADMIN_PASSWORD com pelo menos 12 caracteres e ADMIN_NAME válido.');
+  return;
+ }
+ const [[{total}]]=await pool.query("SELECT COUNT(*) AS total FROM app_users WHERE role='administrador'");
+ if(Number(total)>0)return;
+ const salt=crypto.randomBytes(16).toString('hex');
+ const encoded='scrypt:'+salt+':'+hashPassword(password,salt);
+ const [existing]=await pool.execute('SELECT id,role FROM app_users WHERE phone=? LIMIT 1',[phone]);
+ if(existing.length){
+  console.error('[ADMIN] O telefone informado já pertence a uma conta existente. Não alteramos seu perfil automaticamente.');
+  return;
+ }
+ await pool.execute("INSERT INTO app_users (full_name,phone,password_hash,role,vehicles) VALUES (?,?,?,'administrador','')",[name,phone,encoded]);
+ console.log('[ADMIN] Conta administrativa inicial criada no MySQL.');
 }
 
 function ensureDatabase(force=false) {
