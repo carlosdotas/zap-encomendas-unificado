@@ -1023,7 +1023,7 @@ function CarrierDashboard({onBack}){
       const targetY=Math.min(height*.32,freeHeight*.52);
       map.panBy([0,Math.round(height/2-targetY)],{animate:false});
     }));}}
- async function search(e){e.preventDefault();if(query.trim().length<3)return;setSearching(true);setResults([]);setMessage('');try{const response=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=br&q='+encodeURIComponent(query));if(!response.ok)throw Error('Serviço indisponível');const found=await response.json();setResults(found);if(found.length&&document.activeElement?.tagName==='INPUT')document.activeElement.blur();if(!found.length)setMessage('Nenhum local encontrado. Tente incluir cidade e estado.')}catch{setMessage('Não foi possível buscar agora. Escolha um local de demonstração abaixo.')}finally{setSearching(false)}}
+ async function search(e){e.preventDefault();if(query.trim().length<3)return;setSearching(true);setResults([]);setMessage('');try{const response=await fetch('/api/maps/search?q='+encodeURIComponent(query),{credentials:'same-origin'});const data=await response.json();if(!response.ok)throw Error(data.error||'Serviço indisponível');const found=data.results||[];setResults(found);if(found.length&&document.activeElement?.tagName==='INPUT')document.activeElement.blur();if(!found.length)setMessage('Nenhum local encontrado. Tente incluir cidade e estado.')}catch(err){setMessage(err.message||'Não foi possível buscar agora.')}finally{setSearching(false)}}
  async function submit(e){
   if(e&&e.preventDefault)e.preventDefault();
   if(savingOrder)return;
