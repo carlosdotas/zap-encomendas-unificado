@@ -64,7 +64,8 @@ const migrations = [
   [8, ["ALTER TABLE app_users MODIFY COLUMN role ENUM('motorista','transportadora','administrador') NOT NULL DEFAULT 'motorista'"]],
   [9, ["ALTER TABLE zap_order_entries ADD COLUMN closes_at TIME NULL"]],
   [10, ["ALTER TABLE zap_order_entries ADD COLUMN driver_id BIGINT UNSIGNED NULL", "ALTER TABLE zap_order_entries ADD INDEX idx_zap_order_driver (driver_id)"]],
-  [11, ["CREATE TABLE IF NOT EXISTS zap_driver_positions (user_id BIGINT UNSIGNED PRIMARY KEY, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, accuracy FLOAT NOT NULL, captured_at DATETIME NOT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB"]]
+  [11, ["CREATE TABLE IF NOT EXISTS zap_driver_positions (user_id BIGINT UNSIGNED PRIMARY KEY, latitude DECIMAL(10,7) NOT NULL, longitude DECIMAL(10,7) NOT NULL, accuracy FLOAT NOT NULL, captured_at DATETIME NOT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB"]],
+  [12, ["CREATE TABLE IF NOT EXISTS zap_carrier_driver_settings (carrier_id BIGINT UNSIGNED PRIMARY KEY, configured TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_carrier_allowed_drivers (carrier_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, PRIMARY KEY (carrier_id,driver_id), KEY idx_allowed_driver (driver_id)) ENGINE=InnoDB"]]
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
@@ -358,7 +359,7 @@ async function adminRoutes(req,res,path){
 }
 
 function mapOrder(row) {
- return {id:String(row.id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',closesAt:row.closes_at?String(row.closes_at).slice(0,5):'',instructions:row.instructions||'',driverId:row.driver_id==null?null:String(row.driver_id),status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
+ return {id:String(row.id),ownerId:row.owner_user_id==null?null:String(row.owner_user_id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',closesAt:row.closes_at?String(row.closes_at).slice(0,5):'',instructions:row.instructions||'',driverId:row.driver_id==null?null:String(row.driver_id),status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
 }
 
 async function quickClientRoutes(req,res,path){
@@ -382,6 +383,36 @@ async function quickClientRoutes(req,res,path){
  }
  const [result]=await pool.execute('INSERT INTO zap_quick_clients (owner_user_id,name,contact_name,document_number,phone,address,latitude,longitude) VALUES (?,?,?,?,?,?,?,?)',[user.id,name,contact,document,phone,address,lat,lng]);
  sendJson(res,201,{client:{id:String(result.insertId),name,contactName:contact,document,phone,address,lat,lng}});return true;
+}
+
+async function carrierDriverRoutes(req,res,path){
+ if(path!=='/api/carrier/drivers')return false;
+ if(!['GET','PUT'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true}
+ await ensureDatabase();
+ if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true}
+ const user=await getSession(req);
+ if(!user||user.role!=='transportadora'){sendJson(res,403,{error:'Acesso exclusivo da transportadora'});return true}
+ if(req.method==='GET'){
+  const [rows]=await pool.execute("SELECT id,full_name,vehicles,role FROM app_users WHERE role IN ('motorista','transportadora') ORDER BY full_name ASC");
+  const [settings]=await pool.execute('SELECT configured FROM zap_carrier_driver_settings WHERE carrier_id=?',[user.id]);
+  const [allowed]=await pool.execute('SELECT driver_id FROM zap_carrier_allowed_drivers WHERE carrier_id=?',[user.id]);
+  sendJson(res,200,{configured:settings.length>0,drivers:rows.map(d=>({id:String(d.id),name:d.full_name,vehicles:String(d.vehicles||'').split(',').filter(Boolean),role:d.role,allowed:settings.length===0||allowed.some(a=>String(a.driver_id)===String(d.id))}))});return true;
+ }
+ if(req.headers.origin){let host='';try{host=new URL(req.headers.origin).host}catch{}if(host!==String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim()){sendJson(res,403,{error:'Origem não autorizada'});return true}}
+ let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true}
+ if(!Array.isArray(body.driverIds)||body.driverIds.length>500||body.driverIds.some(id=>!/^\\d+$/.test(String(id)))){sendJson(res,400,{error:'Seleção inválida'});return true}
+ const ids=[...new Set(body.driverIds.map(String))];
+ const conn=await pool.getConnection();
+ try{
+  await conn.beginTransaction();
+  await conn.execute('INSERT INTO zap_carrier_driver_settings (carrier_id,configured) VALUES (?,1) ON DUPLICATE KEY UPDATE configured=1',[user.id]);
+  await conn.execute('DELETE FROM zap_carrier_allowed_drivers WHERE carrier_id=?',[user.id]);
+  for(const id of ids){const [valid]=await conn.execute("SELECT id FROM app_users WHERE id=? AND role IN ('motorista','transportadora')",[id]);if(!valid.length)throw Error('Profissional inválido');await conn.execute('INSERT INTO zap_carrier_allowed_drivers (carrier_id,driver_id) VALUES (?,?)',[user.id,id])}
+  await conn.commit();
+ }catch(err){await conn.rollback();sendJson(res,400,{error:err.message||'Falha ao salvar seleção'});return true}finally{conn.release()}
+ carrierAllowedCache.delete(String(user.id));
+ for(const q of callQueues.values())if(String(q.order.ownerId)===String(user.id)){stopOffer(q);q.tried.clear();nextOffer(q)}
+ sendJson(res,200,{ok:true});return true;
 }
 
 async function orderRoutes(req,res,path) {
@@ -599,13 +630,27 @@ const callSockets=new Map(),callQueues=new Map();
 const callWss=new WebSocketServer({noServer:true});
 const callVehicleLevel={moto:1,carro:2,utilitario:3};
 function callSend(ws,data){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(data))}
+const carrierAllowedCache=new Map();
+async function getCarrierAllowed(ownerId){
+ if(!ownerId)return null;
+ const id=String(ownerId);
+ if(carrierAllowedCache.has(id))return carrierAllowedCache.get(id);
+ const [settings]=await pool.execute('SELECT configured FROM zap_carrier_driver_settings WHERE carrier_id=?',[id]);
+ if(!settings.length){carrierAllowedCache.set(id,null);return null}
+ const [rows]=await pool.execute('SELECT driver_id FROM zap_carrier_allowed_drivers WHERE carrier_id=?',[id]);
+ const allowed=new Set(rows.map(row=>String(row.driver_id)));
+ carrierAllowedCache.set(id,allowed);return allowed;
+}
 function eligibleCallDrivers(vehicle,orderId){
  const sockets=[...callSockets.entries()].filter(([,s])=>[...s].some(ws=>ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[vehicle])).map(([id])=>id);
- return [...new Set([...sockets,...nativePush.candidates(vehicle)])].filter(id=>![...callQueues.values()].some(q=>q.order.id!==orderId&&q.driverId===id));
+ const q=callQueues.get(String(orderId));
+ return [...new Set([...sockets,...nativePush.candidates(vehicle)])].filter(id=>(!q||q.allowedDrivers===null||q.allowedDrivers?.has(String(id)))&&![...callQueues.values()].some(other=>other.order.id!==orderId&&other.driverId===id));
 }
 function stopOffer(queue){if(queue.timer)clearTimeout(queue.timer);queue.timer=null;if(queue.driverId){for(const ws of callSockets.get(queue.driverId)||[])callSend(ws,{type:'call_end',orderId:queue.order.id});nativePush.send(queue.driverId,{type:'call_end',orderId:queue.order.id,offerExpiresAt:queue.offerExpiresAt},pool);}queue.driverId=null}
 function dispatchWaitingOrders(){for(const queue of callQueues.values())if(!queue.driverId&&eligibleCallDrivers(queue.order.vehicle,queue.order.id).length){if(queue.timer)clearTimeout(queue.timer);queue.timer=null;nextOffer(queue)}}
-function nextOffer(queue){
+async function nextOffer(queue){
+ if(!callQueues.has(queue.order.id))return;
+ try{queue.allowedDrivers=await getCarrierAllowed(queue.order.ownerId)}catch(err){console.error('[CALL PERMISSIONS]',err.message);queue.timer=setTimeout(()=>nextOffer(queue),3000);return}
  if(!callQueues.has(queue.order.id))return;
  stopOffer(queue);
  const drivers=eligibleCallDrivers(queue.order.vehicle,queue.order.id);
@@ -619,7 +664,7 @@ function nextOffer(queue){
  queue.timer=setTimeout(()=>{nextOffer(queue);dispatchWaitingOrders()},30000);
  dispatchWaitingOrders();
 }
-function queueOrder(order){const id=String(order.id);if(callQueues.has(id))return;const q={order:{...order,id},driverId:null,tried:new Set(),timer:null};callQueues.set(id,q);nextOffer(q)}
+function queueOrder(order){const id=String(order.id);if(callQueues.has(id))return;const q={order:{...order,id},driverId:null,tried:new Set(),timer:null,allowedDrivers:undefined};callQueues.set(id,q);nextOffer(q)}
 async function recoverPendingCalls(){
  if(!pool||!databaseStatus.ok)return;
  const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE o.status='aguardando_motorista' ORDER BY o.id ASC LIMIT 500");
@@ -667,6 +712,7 @@ const server = http.createServer(async (req,res) => {
   if (await savedPlacesRoutes(req,res,path)) return;
   if (await googleAddressSearch(req,res,path)) return;
   if (await quickClientRoutes(req,res,path)) return;
+  if (await carrierDriverRoutes(req,res,path)) return;
   if (path.startsWith('/api/orders') || path==='/api/driver/orders') {if(await orderRoutes(req,res,path)) return;}
   if (path.startsWith('/api/auth/')) {
     if(await authRoutes(req,res,path)) return;
