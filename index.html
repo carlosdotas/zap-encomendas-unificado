@@ -544,7 +544,7 @@
 .carrier-config-drag{display:flex;justify-content:center;align-items:center;height:19px;cursor:grab;touch-action:pan-x;margin:-7px -8px 1px;padding:5px}.carrier-config-drag span{display:block;width:44px;height:5px;border-radius:9px;background:#a8b7c4}
 
 /* Identificação dos resultados diretamente no mapa */
-.zap-map-place-tooltip.leaflet-tooltip{background:#fff;border:1px solid #d8e1e9;border-radius:10px;padding:7px 10px;box-shadow:0 3px 12px #102b422b;width:max-content;max-width:min(220px,65vw);white-space:normal;pointer-events:none;box-sizing:border-box;z-index:650}
+.zap-map-place-tooltip.leaflet-tooltip{background:#fff;border:1px solid #d8e1e9;border-radius:10px;padding:7px 10px;box-shadow:0 3px 12px #102b422b;width:max-content;max-width:min(220px,65vw);white-space:normal;pointer-events:auto;cursor:pointer;box-sizing:border-box;z-index:650}
 .zap-map-place-tooltip.leaflet-tooltip-right:before{border-right-color:#fff}
 .zap-map-place-label{display:flex;flex-direction:column;gap:3px;max-width:200px;text-align:left;min-width:0}
 .zap-map-place-label strong{font-size:12px;line-height:1.3;color:#183950;overflow-wrap:anywhere}
@@ -976,7 +976,8 @@ function CarrierDashboard({onBack}){
    const marker=L.marker([lat,lng],{icon:pin,zIndexOffset:1100,title:shortName,keyboard:true});
    marker.on('click',()=>choose(place));
    const tooltipHtml='<div class="zap-map-place-label"><strong>'+safeText(shortName)+'</strong>'+(address?'<small>'+safeText(address)+'</small>':'')+'</div>';
-   marker.bindTooltip(tooltipHtml,{direction:'right',offset:[12,-20],opacity:1,permanent:true,interactive:false,className:'zap-map-place-tooltip'});
+   marker.bindTooltip(tooltipHtml,{direction:'right',offset:[12,-20],opacity:1,permanent:true,interactive:true,className:'zap-map-place-tooltip'});
+   marker.on('tooltipopen',event=>{const label=event.tooltip.getElement();if(!label)return;label.setAttribute('role','button');label.setAttribute('tabindex','0');label.setAttribute('aria-label','Selecionar '+shortName);L.DomEvent.disableClickPropagation(label);L.DomEvent.on(label,'click',()=>choose(place));L.DomEvent.on(label,'keydown',event=>{if(event.key==='Enter'||event.key===' '){L.DomEvent.stop(event);choose(place)}})});
    marker.addTo(layer);bounds.push([lat,lng]);
   });
   if(bounds.length){
