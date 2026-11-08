@@ -354,7 +354,7 @@ async function adminRoutes(req,res,path){
 }
 
 function mapOrder(row) {
- return {id:String(row.id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',closesAt:row.closes_at?String(row.closes_at).slice(0,5):'',instructions:row.instructions||'',status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
+ return {id:String(row.id),place:row.place,address:row.address||'',lat:Number(row.latitude),lng:Number(row.longitude),type:row.service_type,vehicle:row.vehicle_type,carrier:'Zap Encomendas',client:row.client_name,clientPhone:row.client_phone||'',closesAt:row.closes_at?String(row.closes_at).slice(0,5):'',instructions:row.instructions||'',driverId:row.driver_id==null?null:String(row.driver_id),status:row.status==='aguardando_motorista'?'Aguardando motorista':row.status};
 }
 
 async function quickClientRoutes(req,res,path){
@@ -393,7 +393,7 @@ async function orderRoutes(req,res,path) {
  const user=await getSession(req);
  if(!user){sendJson(res,401,{error:'Faça login para gerenciar pedidos'});return true;}
  if(req.method==='GET' && path==='/api/orders' && user.role==='motorista'){
-   const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE o.status='aguardando_motorista' ORDER BY o.created_at ASC LIMIT 500");
+   const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE o.status='aguardando_motorista' OR (o.driver_id=? AND o.status='aceito') ORDER BY o.created_at ASC LIMIT 500",[user.id]);
    sendJson(res,200,{orders:rows.map(row=>({...mapOrder(row),carrier:row.carrier_name||'Transportadora'}))});return true;
  }
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Apenas transportadoras podem cadastrar pedidos'});return true;}
