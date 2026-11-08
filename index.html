@@ -1356,4 +1356,57 @@ function App(){
  return page==='loading'?<main className="screen"><p>Verificando sessão...</p></main>:page==='choose'?<RoleChoice onChoose={r=>{setRole(r);setPage('auth')}}/>:page==='auth'?<Auth carrierMode={role==='transportadora'} adminMode={role==='administrador'} onLogin={login}/>:page==='admin'?<AdminDashboard onBack={logout}/>:page==='carrier'?<CarrierDashboard onBack={logout} onSwitchDriver={role==='transportadora'?()=>setPage('map'):undefined}/>:page==='profile'?<ProfilePage profile={profile} onSave={saveProfile} onBack={()=>setPage(returnPage)}/>:<MapView profile={profile} activeVehicle={activeVehicle} onEnd={logout} onLogout={logout} onProfile={()=>{setReturnPage('map');setPage('profile')}} onSwitchCarrier={role==='transportadora'?()=>setPage('carrier'):undefined}/>;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-</script><script>window.addEventListener('error',function(e){const root=document.getElementById('root');if(!root||root.children.length)return;const reason=String(e.message||e.error?.message||'Erro não identificado');const title=document.createElement('h2');title.textContent='Não foi possível carregar o aplicativo';const detail=document.createElement('p');detail.textContent='Erro detectado: '+reason;const hint=document.createElement('p');hint.textContent='Atualize a página. Se persistir, informe a mensagem acima para corrigirmos a causa.';const box=document.createElement('div');box.style.cssText='font:16px Arial;padding:30px;text-align:center;color:#193b59;overflow-wrap:anywhere';box.append(title,detail,hint);root.replaceChildren(box);console.error('[ZAP BOOT]',reason,e.filename,e.lineno,e.colno)});</script></body></html>
+</script><script>window.addEventListener('error',function(e){const root=document.getElementById('root');if(!root||root.children.length)return;const reason=String(e.message||e.error?.message||'Erro não identificado');const title=document.createElement('h2');title.textContent='Não foi possível carregar o aplicativo';const detail=document.createElement('p');detail.textContent='Erro detectado: '+reason;const hint=document.createElement('p');hint.textContent='Atualize a página. Se persistir, informe a mensagem acima para corrigirmos a causa.';const box=document.createElement('div');box.style.cssText='font:16px Arial;padding:30px;text-align:center;color:#193b59;overflow-wrap:anywhere';box.append(title,detail,hint);root.replaceChildren(box);console.error('[ZAP BOOT]',reason,e.filename,e.lineno,e.colno)});</script><style>
+/* Arrastar pelo topo dos diálogos para fechar no celular. */
+.job-modal-handle,.job-modal-head,.carrier-drivers-heading,.carrier-profile-modal>h2,.carrier-places-dialog>header,.dialog>h2{touch-action:none}
+.zap-swipe-closing{transition:transform .16s ease-out!important}
+</style><script>
+(function(){
+ let drag=null;
+ const sheetSelector='.job-modal,.carrier-drivers-dialog,.carrier-profile-modal,.carrier-places-dialog,.dialog';
+ function sheetFrom(target){
+  const sheet=target.closest?.(sheetSelector);
+  if(!sheet)return null;
+  const rect=sheet.getBoundingClientRect();
+  return {sheet,rect};
+ }
+ function start(e){
+  if(e.touches.length!==1)return;
+  const target=e.target;
+  if(target.closest('button,input,textarea,select,a,[contenteditable="true"]'))return;
+  const info=sheetFrom(target);if(!info)return;
+  const {sheet,rect}=info;
+  const inHeader=!!target.closest('.job-modal-handle,.job-modal-head,.carrier-drivers-heading,.carrier-places-dialog>header,.dialog>h2,.carrier-profile-modal>h2');
+  if(!inHeader && e.touches[0].clientY>rect.top+75)return;
+  drag={sheet,startX:e.touches[0].clientX,startY:e.touches[0].clientY,y:0,active:false};
+  sheet.classList.remove('zap-swipe-closing');
+ }
+ function move(e){
+  if(!drag||e.touches.length!==1)return;
+  const dx=e.touches[0].clientX-drag.startX,dy=e.touches[0].clientY-drag.startY;
+  if(dy<=0||Math.abs(dx)>Math.max(45,dy*1.2)){if(drag.active){drag.sheet.style.transform='';drag.active=false}return}
+  if(dy<12&&!drag.active)return;
+  drag.active=true;drag.y=dy;
+  e.preventDefault();
+  drag.sheet.style.transform='translate3d(0,'+Math.min(dy,window.innerHeight)+'px,0)';
+ }
+ function finish(){
+  if(!drag)return;
+  const {sheet,y,active}=drag;drag=null;
+  if(!sheet.isConnected)return;
+  if(active&&y>95){
+   const close=sheet.querySelector('.job-modal-close,.carrier-profile-close,.carrier-drivers-heading button[aria-label="Fechar"],button[aria-label="Fechar"],button[aria-label="Fechar detalhes"],button[aria-label="Fechar lista de pedidos"]');
+   sheet.style.transform='';
+   if(close){close.click();return}
+   const backdrop=sheet.parentElement;
+   if(backdrop&&backdrop!==sheet){backdrop.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));return}
+  }
+  sheet.classList.add('zap-swipe-closing');sheet.style.transform='';
+  setTimeout(()=>{if(sheet.isConnected)sheet.classList.remove('zap-swipe-closing')},180);
+ }
+ document.addEventListener('touchstart',start,{passive:true,capture:true});
+ document.addEventListener('touchmove',move,{passive:false,capture:true});
+ document.addEventListener('touchend',finish,{passive:true,capture:true});
+ document.addEventListener('touchcancel',finish,{passive:true,capture:true});
+})();
+</script></body></html>
