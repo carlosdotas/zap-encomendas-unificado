@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const pathModule = require('node:path');
 const mysql = require('mysql2/promise');
 const crypto = require('node:crypto');
+const {WebSocketServer,WebSocket}=require('ws');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -421,7 +422,9 @@ async function orderRoutes(req,res,path) {
    if(!result.affectedRows){sendJson(res,404,{error:'Pedido não encontrado para esta transportadora'});return true;}
  }
  const [rows]=await pool.execute('SELECT * FROM zap_order_entries WHERE id=? AND owner_user_id=?',[id,user.id]);
- sendJson(res,req.method==='POST'?201:200,{ok:true,order:mapOrder(rows[0])});return true;
+ const saved=mapOrder(rows[0]);
+ if(req.method==='POST')queueOrder({...saved,carrier:user.full_name||'Transportadora'});
+ sendJson(res,req.method==='POST'?201:200,{ok:true,order:saved});return true;
 }
 
 
@@ -586,6 +589,52 @@ function mapsBrowserConfig(req,res,path){
  sendJson(res,200,{apiKey:key,language:'pt-BR',region:'BR'});return true;
 }
 
+
+const callSockets=new Map(),callQueues=new Map();
+const callWss=new WebSocketServer({noServer:true});
+const callVehicleLevel={moto:1,carro:2,utilitario:3};
+function callSend(ws,data){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(data))}
+function eligibleCallDrivers(vehicle){return [...callSockets.entries()].filter(([id,sockets])=>[...sockets].some(ws=>ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[vehicle])).map(([id])=>id)}
+function stopOffer(queue){if(queue.timer)clearTimeout(queue.timer);queue.timer=null;if(queue.driverId){for(const ws of callSockets.get(queue.driverId)||[])callSend(ws,{type:'call_end',orderId:queue.order.id});}queue.driverId=null}
+function nextOffer(queue){
+ if(!callQueues.has(queue.order.id))return;
+ stopOffer(queue);
+ const drivers=eligibleCallDrivers(queue.order.vehicle);
+ if(!drivers.length){queue.timer=setTimeout(()=>nextOffer(queue),3000);return}
+ const next=drivers.find(id=>!queue.tried.has(id));
+ if(!next){queue.tried.clear();queue.timer=setTimeout(()=>nextOffer(queue),1000);return}
+ queue.tried.add(next);queue.driverId=next;
+ for(const ws of callSockets.get(next)||[])if(ws.readyState===WebSocket.OPEN&&callVehicleLevel[ws.vehicle]>=callVehicleLevel[queue.order.vehicle])callSend(ws,{type:'call_offer',order:queue.order,expiresAt:Date.now()+30000});
+ queue.timer=setTimeout(()=>nextOffer(queue),30000);
+}
+function queueOrder(order){if(callQueues.has(order.id))return;const q={order,driverId:null,tried:new Set(),timer:null};callQueues.set(order.id,q);nextOffer(q)}
+async function recoverPendingCalls(){
+ if(!pool||!databaseStatus.ok)return;
+ const [rows]=await pool.execute("SELECT o.*,u.full_name AS carrier_name FROM zap_order_entries o JOIN app_users u ON u.id=o.owner_user_id WHERE o.status='aguardando_motorista' ORDER BY o.id ASC LIMIT 500");
+ const pending=new Set(rows.map(r=>String(r.id)));
+ for(const [id,q] of callQueues)if(!pending.has(id)){stopOffer(q);callQueues.delete(id)}
+ for(const row of rows)queueOrder({...mapOrder(row),carrier:row.carrier_name||'Transportadora'});
+}
+callWss.on('connection',(ws,req,user)=>{
+ ws.userId=String(user.id);ws.vehicle=null;let sockets=callSockets.get(ws.userId);if(!sockets){sockets=new Set();callSockets.set(ws.userId,sockets)}sockets.add(ws);
+ ws.on('message',async raw=>{
+  let msg;try{msg=JSON.parse(String(raw))}catch{return}
+  if(msg.type==='online'&&callVehicleLevel[msg.vehicle]&&(user.vehicles||'').split(',').includes(msg.vehicle)){ws.vehicle=msg.vehicle;recoverPendingCalls().catch(err=>console.error('[CALL RECOVER]',err.message));return}
+  if(msg.type==='offline'){ws.vehicle=null;for(const q of callQueues.values())if(q.driverId===ws.userId)nextOffer(q);return}
+  if(!['accept','reject'].includes(msg.type))return;
+  const id=String(msg.orderId||''),q=callQueues.get(id);
+  if(!/^\d+$/.test(id)||!q||q.driverId!==ws.userId||!ws.vehicle)return;
+  if(msg.type==='reject'){nextOffer(q);return}
+  try{
+   const [result]=await pool.execute("UPDATE zap_order_entries SET status='aceito',driver_id=? WHERE id=? AND status='aguardando_motorista'",[user.id,id]);
+   if(!result.affectedRows){callSend(ws,{type:'call_error',orderId:id,message:'Pedido já atendido.'});stopOffer(q);callQueues.delete(id);return}
+   stopOffer(q);callQueues.delete(id);
+   for(const socket of callSockets.get(ws.userId)||[])callSend(socket,{type:'call_accepted',order:q.order});
+  }catch(err){console.error('[CALL ACCEPT]',err.message);callSend(ws,{type:'call_error',orderId:id,message:'Não foi possível aceitar o pedido.'})}
+ });
+ ws.on('close',()=>{sockets.delete(ws);if(!sockets.size)callSockets.delete(ws.userId);for(const q of callQueues.values())if(q.driverId===ws.userId&&!eligibleCallDrivers(q.order.vehicle).includes(ws.userId))nextOffer(q)});
+});
+
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
@@ -640,10 +689,12 @@ const server = http.createServer(async (req,res) => {
     if(!res.headersSent) sendJson(res,500,{error:'Falha ao processar cadastro ou login.',code,hint:dbErrorHint(code)});
   }
 });
+server.on('upgrade',async(req,socket,head)=>{try{if(new URL(req.url,'http://localhost').pathname!=='/ws/calls'){socket.destroy();return}await ensureDatabase();const user=await getSession(req);if(!user||user.role!=='motorista'){socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');socket.destroy();return}callWss.handleUpgrade(req,socket,head,ws=>callWss.emit('connection',ws,req,user))}catch{socket.destroy()}});
 server.listen(PORT, HOST, () => {
   console.log('[ZAP] Servidor online na porta '+PORT);
-  ensureDatabase(true).catch(err => console.error('[BOOT]',err.message));
+  ensureDatabase(true).then(recoverPendingCalls).catch(err => console.error('[BOOT]',err.message));
   const timer=setInterval(()=>{if(!databaseStatus.ok || migrationStatus!=='atualizado') ensureDatabase().catch(err=>console.error('[RETRY]',err.message));},30000);
   timer.unref();
+  const recovery=setInterval(()=>recoverPendingCalls().catch(err=>console.error('[CALL SYNC]',err.message)),30000);recovery.unref();
 });
 process.on('SIGTERM', async () => { server.close(); if(pool) await pool.end(); });
