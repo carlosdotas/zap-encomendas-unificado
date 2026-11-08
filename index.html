@@ -858,6 +858,8 @@ useEffect(()=>{
  marker.bindTooltip('Local da chamada: '+incomingCall.place,{direction:'top',offset:[0,-36]});
  incomingMarkerRef.current=marker;
  const driver=gpsPointRef.current;
+ // A rota é calculada automaticamente assim que a chamada chega, sem exigir Visualizar/Aceitar.
+ showRouteToJob(incomingCall);
  if(driver&&driver.every(Number.isFinite))map.fitBounds(L.latLngBounds([driver,[lat,lng]]),{paddingTopLeft:[45,70],paddingBottomRight:[45,Math.round(window.innerHeight*.38)],maxZoom:16,animate:true});
  else map.flyTo([lat,lng],16,{duration:.6});
  return()=>{marker.remove();if(incomingMarkerRef.current===marker)incomingMarkerRef.current=null};
@@ -958,7 +960,7 @@ renderJobClusters();setTimeout(()=>map.invalidateSize(),150);return()=>{map.remo
  else gpsAccuracyRef.current.setLatLng(point).setRadius(accuracy);
  jobsRef.current.forEach(job=>job.marker.setIcon(L.divIcon({className:'job-div-icon',html:markerHtml(job,point),iconSize:[399,154],iconAnchor:[29,154]})));
  if(refreshRef.current)refreshRef.current();
- if(gpsFirstFixRef.current){gpsFirstFixRef.current=false;map.invalidateSize();map.flyTo(point,17,{duration:.8});setToast('Mapa centralizado na localização do motorista')}
+ if(gpsFirstFixRef.current){gpsFirstFixRef.current=false;map.invalidateSize();if(incomingCall){showRouteToJob(incomingCall)}else{map.flyTo(point,17,{duration:.8});setToast('Mapa centralizado na localização do motorista')}}
  }
  function gpsError(err){setGpsStatus('GPS indisponível');const message=err?.code===1?'Permita o acesso à localização nas configurações do navegador.':err?.code===3?'GPS demorou para responder. Tente novamente.':'Não foi possível obter sua localização.';setToast(message)}
  function startDriverGps(){
