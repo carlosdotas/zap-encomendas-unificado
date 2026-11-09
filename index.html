@@ -1605,12 +1605,13 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   finally{setClientAddressBusy(false)}
  }
  async function pickPhoneContact(){
-  if(!navigator.contacts||typeof navigator.contacts.select!=='function'){
+  const contactPicker=window.ZapContacts||navigator.contacts;
+  if(typeof contactPicker?.select!=='function'){
    setClientError('Este navegador não permite abrir a agenda diretamente. No Android, abra o aplicativo pelo Chrome atualizado (HTTPS) para usar a seleção de contatos; em navegadores internos ou WebView o recurso pode não estar disponível.');
    return;
   }
   try{
-   const selected=await navigator.contacts.select(['name','tel'],{multiple:false});
+   const selected=await contactPicker.select(['name','tel'],{multiple:false});
    if(!selected||!selected.length)return;
    const contact=selected[0],name=String(contact.name?.[0]||'').trim(),phone=String(contact.tel?.[0]||'').trim();
    if(!name&&!phone){setClientError('O contato selecionado não possui nome nem telefone.');return;}
@@ -1619,7 +1620,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   }catch(err){
    if(err?.name==='AbortError')return;
    if(err?.name==='NotAllowedError'||err?.name==='SecurityError'){setClientError('Acesso à agenda bloqueado. Abra pelo Chrome e permita o acesso aos contatos.');return;}
-   setClientError('Não foi possível acessar a agenda de contatos.');
+   setClientError(window.ZapContacts?err.message||'Não foi possível abrir a agenda do telefone.':'Não foi possível acessar a agenda de contatos.');
   }
  }
  async function registerClient(e){e.preventDefault();const name=newClient.name.trim(),phone=phoneDigits(newClient.phone),contactName=newClient.contactName.trim(),document=String(newClient.document||'').replace(/\D/g,'');if(name.length<2||contactName.length<2){setClientError('Informe nome do cliente e nome do contato.');return}if(![11,14].includes(document.length)){setClientError('Informe CPF ou CNPJ com 11 ou 14 dígitos.');return}if(phone.length<10||phone.length>11){setClientError('Informe telefone com DDD.');return}if((newClient.address||'').trim().length<5){setClientError('Informe a localização ou endereço do cliente.');return}try{const response=await fetch('/api/clients',{method:clientEditId?'PUT':'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({...newClient,id:clientEditId,phone,document})});const data=await response.json();if(!response.ok)throw Error(data.error||'Falha ao cadastrar cliente');setClients(prev=>clientEditId?prev.map(c=>String(c.id)===String(clientEditId)?{...c,...data.client}:c):[data.client,...prev]);if(!clientManagement)selectClient(data.client);setClientDialog(false);setClientError('');setClientEditId(null);if(clientManagement){setClientListQuery('');setClientListOpen(true)}}catch(err){setClientError(err.message||'Falha ao salvar cliente')}}

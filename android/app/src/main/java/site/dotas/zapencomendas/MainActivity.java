@@ -20,6 +20,7 @@ import java.util.*;
 public class MainActivity extends BridgeActivity {
     private boolean pendingStart=false, registered=false, permissionDialog=false, permissionRequestInFlight=false;
     private WebViewViewport viewport;
+    private final ContactPicker contacts=new ContactPicker(this);
     private boolean backRequestInFlight=false,shareIntentHandled=false;
     @Override protected void onCreate(Bundle saved){
         if(saved!=null&&saved.getBoolean("zap_share_intent_handled",false)){
@@ -61,7 +62,8 @@ public class MainActivity extends BridgeActivity {
         if(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))WebViewCompat.addWebMessageListener(bridge.getWebView(),"ZapNative",origins,(view,message,origin,main,reply)->{
             if(!main)return;
             try {JSONObject m=new JSONObject(message.getData());String type=m.optString("type");
-                if(type.equals("viewport_ready")){viewport.ready();}
+                if(type.equals("pick_contact")){contacts.pick(m.optString("id"));}
+                else if(type.equals("viewport_ready")){viewport.ready();}
                 else if(type.equals("location_ready")){deliverSharedLocation();}
                 else if(type.equals("location_ack")){
                     String stored=getSharedPreferences("shared_location",MODE_PRIVATE).getString("pending",null);
@@ -72,7 +74,7 @@ public class MainActivity extends BridgeActivity {
                 else if(type.equals("send")){Intent i=new Intent(this,DriverService.class).setAction("send").putExtra("data",m.getString("data"));if(DriverService.running)startService(i);}
             }catch(Exception ignored){}
         });
-        for(String asset:new String[]{"viewport.js","navigation.js","location-input.js","shared-location.js","driver-bridge.js"}){
+        for(String asset:new String[]{"viewport.js","contacts.js","navigation.js","location-input.js","shared-location.js","driver-bridge.js"}){
             try(java.io.InputStream in=getAssets().open(asset)){
                 java.io.ByteArrayOutputStream buffer=new java.io.ByteArrayOutputStream();
                 byte[] bytes=new byte[4096];int count;while((count=in.read(bytes))!=-1)buffer.write(bytes,0,count);

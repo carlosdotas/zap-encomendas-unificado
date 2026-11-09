@@ -7,3 +7,4 @@ fs.copyFileSync('mobile/driver-bridge.js','android/app/src/main/assets/driver-br
 fs.copyFileSync('navigation.js','android/app/src/main/assets/navigation.js');
 for(const asset of ['location-input.js','shared-location.js'])fs.copyFileSync(asset,'android/app/src/main/assets/'+asset);
 fs.copyFileSync('mobile/viewport.js','android/app/src/main/assets/viewport.js');
+fs.copyFileSync('mobile/contacts.js','android/app/src/main/assets/contacts.js');
