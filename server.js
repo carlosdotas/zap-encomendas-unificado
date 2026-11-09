@@ -511,7 +511,7 @@ async function orderRoutes(req,res,path) {
    if(rateLimit(req,'orders')){sendJson(res,429,{error:'Muitas tentativas. Aguarde alguns minutos.'});return true;}
    let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true;}
    const ids=body?.ids;
-   if(!Array.isArray(ids)||ids.length===0||ids.length>100||ids.some(id=>!/^\\d+$/.test(String(id)))||new Set(ids.map(String)).size!==ids.length){
+   if(!Array.isArray(ids)||ids.length===0||ids.length>100||ids.some(id=>!/^[0-9]+$/.test(String(id)))||new Set(ids.map(String)).size!==ids.length){
      sendJson(res,400,{error:'Selecione entre 1 e 100 pedidos válidos, sem repetições.'});return true;
    }
    const conn=await pool.getConnection();
