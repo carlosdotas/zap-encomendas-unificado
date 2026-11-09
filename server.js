@@ -403,7 +403,7 @@ async function carrierDriverRoutes(req,res,path){
  }
  if(req.headers.origin){let host='';try{host=new URL(req.headers.origin).host}catch{}if(host!==String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim()){sendJson(res,403,{error:'Origem não autorizada'});return true}}
  let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true}
- if(!Array.isArray(body.driverIds)||body.driverIds.length>500||body.driverIds.some(id=>!/^\\d+$/.test(String(id)))){sendJson(res,400,{error:'Seleção inválida'});return true}
+ if(!Array.isArray(body.driverIds)||body.driverIds.length>500||body.driverIds.some(id=>!/^[0-9]+$/.test(String(id)))){sendJson(res,400,{error:'Seleção inválida'});return true}
  const ids=[...new Set(body.driverIds.map(String))];
  const conn=await pool.getConnection();
  try{
