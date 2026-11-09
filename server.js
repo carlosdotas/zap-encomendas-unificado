@@ -69,7 +69,7 @@ const migrations = [
   [12, ["CREATE TABLE IF NOT EXISTS zap_carrier_driver_settings (carrier_id BIGINT UNSIGNED PRIMARY KEY, configured TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_carrier_allowed_drivers (carrier_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, PRIMARY KEY (carrier_id,driver_id), KEY idx_allowed_driver (driver_id)) ENGINE=InnoDB"]],
   [13, ["ALTER TABLE zap_order_entries ADD COLUMN value_items JSON NULL"]],
   [14, ["CREATE TABLE IF NOT EXISTS zap_order_proofs (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, order_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, action ENUM('coleta','entrega','troca') NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_order_action (order_id,action), KEY idx_proof_order (order_id), KEY idx_proof_driver (driver_id)) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_order_proof_photos (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, proof_id BIGINT UNSIGNED NOT NULL, mime_type VARCHAR(32) NOT NULL, image_data LONGBLOB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_proof_photo (proof_id)) ENGINE=InnoDB"]],
-  [15, ["ALTER TABLE zap_quick_clients ADD COLUMN city VARCHAR(80) NULL"]]
+  [15, ["ALTER TABLE app_users ADD COLUMN city VARCHAR(80) NULL"]]
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
@@ -293,14 +293,16 @@ async function authRoutes(req,res,path) {
   if(path==='/api/auth/register') {
     const name=String(body.name||'').trim().replace(/\s+/g,' ');
     const role=body.role==='transportadora'?'transportadora':'motorista';
+    const city=String(body.city||'').trim();
+    const allowedCities=['Goiânia','Anápolis','Leopoldo de Bulhões','Silvânia','Vianópolis','Bonfinópolis'];
     const vehicles=Array.isArray(body.vehicles)?body.vehicles.filter(v=>['moto','carro','utilitario'].includes(v)).slice(0,3):[];
-    if(name.length<3 || name.length>160 || (role==='motorista' && vehicles.length===0)) {
-      sendJson(res,400,{error:'Informe nome completo e pelo menos um veículo para motorista.'});return true;
+    if(name.length<3 || name.length>160 || (role==='motorista' && (vehicles.length===0 || !allowedCities.includes(city)))) {
+      sendJson(res,400,{error:'Informe nome completo, cidade e pelo menos um veículo para motorista.'});return true;
     }
     const salt=crypto.randomBytes(16).toString('hex');
     const encoded='scrypt:'+salt+':'+hashPassword(password,salt);
     try {
-      const [result]=await pool.execute('INSERT INTO app_users (full_name,phone,password_hash,role,vehicles) VALUES (?,?,?,?,?)',[name,phone,encoded,role,vehicles.join(',')]);
+      const [result]=await pool.execute('INSERT INTO app_users (full_name,phone,password_hash,role,vehicles,city) VALUES (?,?,?,?,?,?)',[name,phone,encoded,role,vehicles.join(','),role==='motorista'?city:null]);
       await loginSession(req,res,{id:result.insertId,full_name:name,phone,role,vehicles:vehicles.join(',')});
     } catch(err) {
       if(err.code==='ER_DUP_ENTRY'){sendJson(res,409,{error:'Telefone já cadastrado. Faça login.'});return true;}
@@ -374,20 +376,19 @@ async function quickClientRoutes(req,res,path){
  if(!user){sendJson(res,401,{error:'Faça login para acessar clientes'});return true;}
  if(user.role!=='transportadora'){sendJson(res,403,{error:'Acesso restrito a transportadoras'});return true;}
  if(req.method==='GET'){
-  const [rows]=await pool.execute('SELECT c.id,c.name,c.contact_name,c.document_number,c.phone,c.address,c.city,c.latitude,c.longitude,(SELECT COUNT(*) FROM zap_order_entries o WHERE o.owner_user_id=c.owner_user_id AND (o.client_phone=c.phone AND c.phone<>\'\' OR LOWER(TRIM(o.client_name))=LOWER(TRIM(c.name)) AND c.name<>\'\')) AS usage_count FROM zap_quick_clients c WHERE c.owner_user_id=? ORDER BY usage_count DESC,c.id DESC LIMIT 500',[user.id]);
-  sendJson(res,200,{clients:rows.map(c=>({id:String(c.id),name:c.name,contactName:c.contact_name,document:c.document_number,phone:c.phone,city:c.city||'',usageCount:Number(c.usage_count)||0,address:c.address,lat:c.latitude===null?null:Number(c.latitude),lng:c.longitude===null?null:Number(c.longitude)}))});return true;
+  const [rows]=await pool.execute('SELECT c.id,c.name,c.contact_name,c.document_number,c.phone,c.address,c.latitude,c.longitude,(SELECT COUNT(*) FROM zap_order_entries o WHERE o.owner_user_id=c.owner_user_id AND (o.client_phone=c.phone AND c.phone<>\'\' OR LOWER(TRIM(o.client_name))=LOWER(TRIM(c.name)) AND c.name<>\'\')) AS usage_count FROM zap_quick_clients c WHERE c.owner_user_id=? ORDER BY usage_count DESC,c.id DESC LIMIT 500',[user.id]);
+  sendJson(res,200,{clients:rows.map(c=>({id:String(c.id),name:c.name,contactName:c.contact_name,document:c.document_number,phone:c.phone,usageCount:Number(c.usage_count)||0,address:c.address,lat:c.latitude===null?null:Number(c.latitude),lng:c.longitude===null?null:Number(c.longitude)}))});return true;
  }
  if(req.headers.origin){let origin='';try{origin=new URL(req.headers.origin).host}catch{}const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin!==host){sendJson(res,403,{error:'Origem não autorizada'});return true;}}
  if(rateLimit(req,'quick-client')){sendJson(res,429,{error:'Muitas tentativas. Aguarde alguns minutos.'});return true;}
  let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true;}
- const name=String(body.name||'').trim(),contact=String(body.contactName||'').trim(),phone=phoneDigits(body.phone),document=String(body.document||'').replace(/\D/g,''),address=String(body.address||'').trim(),city=String(body.city||'').trim();
- const allowedCities=['Goiânia','Anápolis','Leopoldo de Bulhões','Silvânia','Vianópolis','Bonfinópolis'];
+ const name=String(body.name||'').trim(),contact=String(body.contactName||'').trim(),phone=phoneDigits(body.phone),document=String(body.document||'').replace(/\D/g,''),address=String(body.address||'').trim();
  const lat=body.lat==null?null:Number(body.lat),lng=body.lng==null?null:Number(body.lng);
- if(name.length<2||name.length>160||contact.length<2||contact.length>160||!/^\d{10,11}$/.test(phone)||![11,14].includes(document.length)||address.length<5||address.length>600||!allowedCities.includes(city)||(lat!==null&&(!Number.isFinite(lat)||lat < -90||lat>90))||(lng!==null&&(!Number.isFinite(lng)||lng < -180||lng>180))||((lat===null)!==(lng===null))){
-  sendJson(res,400,{error:'Informe nome, contato, CPF/CNPJ, telefone, cidade e localização.'});return true;
+ if(name.length<2||name.length>160||contact.length<2||contact.length>160||!/^\d{10,11}$/.test(phone)||![11,14].includes(document.length)||address.length<5||address.length>600||(lat!==null&&(!Number.isFinite(lat)||lat < -90||lat>90))||(lng!==null&&(!Number.isFinite(lng)||lng < -180||lng>180))||((lat===null)!==(lng===null))){
+  sendJson(res,400,{error:'Informe nome, contato, CPF/CNPJ, telefone e localização.'});return true;
  }
- const [result]=await pool.execute('INSERT INTO zap_quick_clients (owner_user_id,name,contact_name,document_number,phone,address,city,latitude,longitude) VALUES (?,?,?,?,?,?,?,?,?)',[user.id,name,contact,document,phone,address,city,lat,lng]);
- sendJson(res,201,{client:{id:String(result.insertId),name,contactName:contact,document,phone,address,city,lat,lng}});return true;
+ const [result]=await pool.execute('INSERT INTO zap_quick_clients (owner_user_id,name,contact_name,document_number,phone,address,latitude,longitude) VALUES (?,?,?,?,?,?,?,?)',[user.id,name,contact,document,phone,address,lat,lng]);
+ sendJson(res,201,{client:{id:String(result.insertId),name,contactName:contact,document,phone,address,lat,lng}});return true;
 }
 
 async function carrierDriverRoutes(req,res,path){
