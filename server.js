@@ -70,7 +70,8 @@ const migrations = [
   [13, ["ALTER TABLE zap_order_entries ADD COLUMN value_items JSON NULL"]],
   [14, ["CREATE TABLE IF NOT EXISTS zap_order_proofs (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, order_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, action ENUM('coleta','entrega','troca') NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_order_action (order_id,action), KEY idx_proof_order (order_id), KEY idx_proof_driver (driver_id)) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_order_proof_photos (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, proof_id BIGINT UNSIGNED NOT NULL, mime_type VARCHAR(32) NOT NULL, image_data LONGBLOB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_proof_photo (proof_id)) ENGINE=InnoDB"]],
   [15, ["SELECT 1"]],
-  [16, ["ALTER TABLE app_users ADD COLUMN city VARCHAR(80) NULL"]]
+  [16, ["ALTER TABLE app_users ADD COLUMN city VARCHAR(80) NULL"]],
+  [17, ["CREATE TABLE IF NOT EXISTS zap_driver_presence (driver_id BIGINT UNSIGNED PRIMARY KEY, active TINYINT(1) NOT NULL DEFAULT 0, vehicle VARCHAR(24) NULL, latitude DECIMAL(10,7) NULL, longitude DECIMAL(10,7) NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, KEY idx_presence_active (active,updated_at)) ENGINE=InnoDB"]]
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
@@ -399,6 +400,29 @@ async function quickClientRoutes(req,res,path){
  sendJson(res,201,{client:{id:String(result.insertId),name,contactName:contact,document,phone,address,lat,lng}});return true;
 }
 
+async function driverPresenceRoutes(req,res,path){
+ if(!['/api/driver/presence','/api/carrier/online-drivers'].includes(path))return false;
+ if(path==='/api/carrier/online-drivers'&&req.method!=='GET'||path==='/api/driver/presence'&&!['POST','DELETE'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true}
+ await ensureDatabase();
+ if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true}
+ const user=await getSession(req);
+ if(!user){sendJson(res,401,{error:'Autenticação necessária'});return true}
+ if(path==='/api/carrier/online-drivers'){
+  if(user.role!=='transportadora'){sendJson(res,403,{error:'Acesso negado'});return true}
+  const [rows]=await pool.execute("SELECT p.driver_id AS id,u.full_name AS name,p.vehicle,p.latitude AS lat,p.longitude AS lng FROM zap_driver_presence p JOIN app_users u ON u.id=p.driver_id LEFT JOIN zap_carrier_driver_settings cs ON cs.carrier_id=? LEFT JOIN zap_carrier_allowed_drivers ad ON ad.carrier_id=? AND ad.driver_id=p.driver_id WHERE u.role='motorista' AND p.active=1 AND p.updated_at>DATE_SUB(NOW(),INTERVAL 90 SECOND) AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL AND (cs.carrier_id IS NULL OR ad.driver_id IS NOT NULL)",[user.id,user.id]);
+  sendJson(res,200,{drivers:rows});return true;
+ }
+ if(user.role!=='motorista'){sendJson(res,403,{error:'Acesso exclusivo do motorista'});return true}
+ if(req.headers.origin){let host='';try{host=new URL(req.headers.origin).host}catch{}if(host!==String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim()){sendJson(res,403,{error:'Origem não autorizada'});return true}}
+ if(req.method==='DELETE'){
+  await pool.execute('DELETE FROM zap_driver_presence WHERE driver_id=?',[user.id]);sendJson(res,200,{ok:true});return true;
+ }
+ let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true}
+ const lat=Number(body.lat),lng=Number(body.lng),vehicle=String(body.vehicle||'');
+ if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180||!['moto','carro','utilitario'].includes(vehicle)){sendJson(res,400,{error:'Localização ou veículo inválido'});return true}
+ await pool.execute('INSERT INTO zap_driver_presence (driver_id,active,vehicle,latitude,longitude) VALUES (?,1,?,?,?) ON DUPLICATE KEY UPDATE active=1,vehicle=VALUES(vehicle),latitude=VALUES(latitude),longitude=VALUES(longitude),updated_at=CURRENT_TIMESTAMP',[user.id,vehicle,lat,lng]);
+ sendJson(res,200,{ok:true});return true;
+}
 async function carrierDriverRoutes(req,res,path){
  if(path!=='/api/carrier/drivers')return false;
  if(!['GET','PUT'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true}
@@ -809,6 +833,7 @@ const server = http.createServer(async (req,res) => {
   if (await savedPlacesRoutes(req,res,path)) return;
   if (await googleAddressSearch(req,res,path)) return;
   if (await quickClientRoutes(req,res,path)) return;
+  if (await driverPresenceRoutes(req,res,path)) return;
   if (await carrierDriverRoutes(req,res,path)) return;
   if (path.startsWith('/api/driver/orders/') && await orderProofRoutes(req,res,path)) return;
   if (path.startsWith('/api/orders') || path==='/api/driver/orders') {if(await orderRoutes(req,res,path)) return;}
