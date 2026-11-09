@@ -27,10 +27,10 @@ public class IncomingCallActivity extends Activity {
         addText(layout,"ZAP ENCOMENDAS",18);addText(layout,"Novo pedido",32);addText(layout,getIntent().getStringExtra("place"),25);addText(layout,getIntent().getStringExtra("address"),18);
         TextView countdown=addText(layout,"",18);
         Runnable clock=new Runnable(){public void run(){long seconds=(getIntent().getLongExtra("expiresAt",0)-System.currentTimeMillis()+999)/1000;if(seconds<=0){finish();return;}countdown.setText("Atenda em "+seconds+" segundos");handler.postDelayed(this,1000);}};clock.run();
-        Button accept=new Button(this);accept.setText("Aceitar pedido");accept.setTextColor(Color.WHITE);accept.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(5,145,90)));layout.addView(accept,new LinearLayout.LayoutParams(-1,140));accept.setOnClickListener(v->decide("accept"));
+        Button accept=new Button(this);accept.setText("Visualizar");accept.setTextColor(Color.WHITE);accept.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(5,145,90)));layout.addView(accept,new LinearLayout.LayoutParams(-1,140));accept.setOnClickListener(v->{startActivity(DriverService.viewIntent(this,getIntent().getStringExtra("orderId")));finish();});
         Button reject=new Button(this);reject.setText("Recusar");layout.addView(reject,new LinearLayout.LayoutParams(-1,140));reject.setOnClickListener(v->decide("reject"));setContentView(layout);SystemBars.protectCallContent(layout);
     }
     private TextView addText(LinearLayout l,String text,int size){TextView t=new TextView(this);t.setText(text);t.setTextSize(size);t.setTextColor(Color.WHITE);t.setGravity(Gravity.CENTER);t.setPadding(0,18,0,18);l.addView(t);return t;}
-    private void decide(String action){startService(new Intent(this,DriverService.class).setAction(action).putExtra("orderId",getIntent().getStringExtra("orderId")));if(action.equals("accept"))startActivity(new Intent(this,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP));finish();}
+    private void decide(String action){startService(new Intent(this,DriverService.class).setAction(action).putExtra("orderId",getIntent().getStringExtra("orderId")));finish();}
     @Override public void onDestroy(){handler.removeCallbacksAndMessages(null);if(registered)unregisterReceiver(receiver);super.onDestroy();}
 }

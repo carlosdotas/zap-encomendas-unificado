@@ -31,7 +31,6 @@ public class DriverService extends Service implements LocationListener {
     private String lastEndedOrder;
     private long lastEndedExpiry;
     private LocationManager locations;
-    private Ringtone ringtone;
     private PowerManager.WakeLock wakeLock;
     private static final int JOURNEY=10,CALL=20;
     @Override public void onCreate(){
@@ -65,6 +64,8 @@ public class DriverService extends Service implements LocationListener {
             vehicle=getSharedPreferences("driver",MODE_PRIVATE).getString("vehicle",null);
             try{handleMessage(new JSONObject(intent.getStringExtra("payload")));}catch(Exception ignored){}
             if(socket==null)connect();
+        }else if("view".equals(action)){
+            viewOffer(intent.getStringExtra("orderId"));
         }else if("accept".equals(action)||"reject".equals(action)){
             String orderId=intent.getStringExtra("orderId");
             if(offer!=null&&System.currentTimeMillis()<expiresAt&&offer.optJSONObject("order").optString("id").equals(orderId)){
@@ -107,7 +108,8 @@ public class DriverService extends Service implements LocationListener {
             if(order.optString("id").equals(lastEndedOrder)&&msg.optLong("expiresAt")<=lastEndedExpiry)return;
             if(offer!=null&&offer.optJSONObject("order").optString("id").equals(order.optString("id"))&&msg.optLong("expiresAt")<expiresAt)return;
             boolean duplicate=offer!=null&&offer.optJSONObject("order").optString("id").equals(order.optString("id"))&&expiresAt==msg.optLong("expiresAt");
-            offer=msg;accepted=null;expiresAt=msg.optLong("expiresAt");if(!duplicate)showCall();
+            boolean viewed=duplicate&&offer.optBoolean("viewed");
+            offer=msg;if(viewed)try{offer.put("viewed",true).put("activeVehicle",vehicle);}catch(Exception ignored){}accepted=null;expiresAt=msg.optLong("expiresAt");if(!duplicate)showCall();
         }else if(type.equals("call_end")){
             long ended=msg.optLong("offerExpiresAt");lastEndedOrder=msg.optString("orderId");lastEndedExpiry=Math.max(lastEndedExpiry,ended);
             if(offer!=null&&offer.optJSONObject("order").optString("id").equals(msg.optString("orderId"))&&(ended==0||ended==expiresAt))clearOffer();
@@ -150,19 +152,26 @@ public class DriverService extends Service implements LocationListener {
         JSONObject order=offer.optJSONObject("order");if(order==null)return;
         String id=order.optString("id");
         PendingIntent full=PendingIntent.getActivity(this,20,new Intent(this,IncomingCallActivity.class).putExtra("orderId",id).putExtra("place",order.optString("place")).putExtra("address",order.optString("address")).putExtra("expiresAt",expiresAt).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        Notification n=new NotificationCompat.Builder(this,"driver_calls_v1").setSmallIcon(R.drawable.ic_zap_notification).setContentTitle("Novo pedido • "+order.optString("place")).setContentText("Toque para atender a chamada").setCategory(NotificationCompat.CATEGORY_CALL).setPriority(NotificationCompat.PRIORITY_MAX).setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setOngoing(true).setContentIntent(full).setFullScreenIntent(full,true).setTimeoutAfter(remaining)
-            .addAction(0,"Recusar",action("reject",id,21)).addAction(0,"Aceitar",action("accept",id,22)).build();
+        PendingIntent view=PendingIntent.getActivity(this,22,viewIntent(this,id),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        Notification n=new NotificationCompat.Builder(this,"driver_calls_v1").setSmallIcon(R.drawable.ic_zap_notification).setContentTitle("Novo pedido • "+order.optString("place")).setContentText("Toque para visualizar o pedido").setCategory(NotificationCompat.CATEGORY_CALL).setPriority(NotificationCompat.PRIORITY_MAX).setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setOngoing(true).setContentIntent(view).setFullScreenIntent(full,true).setTimeoutAfter(remaining)
+            .addAction(0,"Recusar",action("reject",id,21)).addAction(0,"Visualizar",view).build();
+        // Android is the sole sound owner: respects channel volume, mute and DND.
+        // FLAG_INSISTENT repeats that same notification sound until cleared/expired.
+        n.flags|=Notification.FLAG_INSISTENT;
         getSystemService(NotificationManager.class).notify(CALL,n);
-        // The channel owns the sound preference. Respect muted channels and Do Not Disturb.
-        NotificationChannel channel=getSystemService(NotificationManager.class).getNotificationChannel("driver_calls_v1");
-        if(channel.getImportance()>=NotificationManager.IMPORTANCE_HIGH&&channel.getSound()!=null){
-            ringtone=RingtoneManager.getRingtone(this,channel.getSound());
-            if(ringtone!=null){ringtone.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).build());if(Build.VERSION.SDK_INT>=28)ringtone.setLooping(true);ringtone.play();}
-        }
         final long expiry=expiresAt;
         handler.postDelayed(()->{if(offer!=null&&expiresAt==expiry&&offer.optJSONObject("order").optString("id").equals(id))clearOffer();},remaining);
     }
-    private void clearRing(){if(ringtone!=null){ringtone.stop();ringtone=null;}getSystemService(NotificationManager.class).cancel(CALL);}
+    static final String VIEW_ORDER="site.dotas.zapencomendas.VIEW_ORDER";
+    static Intent viewIntent(Context context,String id){return new Intent(context,MainActivity.class).setAction(VIEW_ORDER).putExtra("orderId",id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP);}
+    private void viewOffer(String id){
+        if(offer==null||System.currentTimeMillis()>=expiresAt||!offer.optJSONObject("order").optString("id").equals(id))return;
+        try{offer.put("viewed",true).put("activeVehicle",vehicle);}catch(Exception ignored){}
+        clearRing();broadcast(this,"call_dismiss",new JSONObject());
+        // Retain the live offer. Viewing never sends accept/reject to the server.
+        emit("message",offer);
+    }
+    private void clearRing(){getSystemService(NotificationManager.class).cancel(CALL);}
     private void clearOffer(){offer=null;clearRing();broadcast(this,"call_dismiss",new JSONObject());}
     @Override public void onLocationChanged(Location l){
         if(System.currentTimeMillis()-l.getTime()>60000)return;

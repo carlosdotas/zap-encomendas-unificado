@@ -44,6 +44,10 @@
       const text=document.createElement('p');text.textContent='Jornada encerrada. A localização e a espera de chamadas estão desativadas.';overlay.append(text);
       const button=document.createElement('button');button.textContent='Voltar a ficar online';button.style.cssText='padding:18px;background:#10b981;color:white;border:0;border-radius:12px;font:inherit';button.onclick=()=>location.reload();overlay.append(button);document.body.append(overlay);return;
     }
+    if(type==='message'&&data.type==='call_offer'&&data.viewed){
+      window.__zapPendingCallView={orderId:String(data.order.id),vehicle:data.activeVehicle};
+      window.dispatchEvent(new Event('zap:call-view'));
+    }
     if(!s) return;
     if(type==='open') { if(s.readyState!==1) {s.readyState=1;s.emit('open');} }
     else if(type==='message') s.emit('message',data);
@@ -58,4 +62,5 @@
     // Other profiles keep the browser's on-demand GPS prompt.
   }
   window.addEventListener('pagehide',()=>{for(const t of watches.values())clearInterval(t)});
+  post({type:'calls_ready'});
 })();

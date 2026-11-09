@@ -63,6 +63,8 @@ public class MainActivity extends BridgeActivity {
             if(!main)return;
             try {JSONObject m=new JSONObject(message.getData());String type=m.optString("type");
                 if(type.equals("pick_contact")){contacts.pick(m.optString("id"));}
+                else if(type.equals("calls_ready")){if(DriverService.running)DriverService.replay(this);}
+                else if(type.equals("call_view")){if(DriverService.running)startService(new Intent(this,DriverService.class).setAction("view").putExtra("orderId",m.optString("orderId")));}
                 else if(type.equals("viewport_ready")){viewport.ready();}
                 else if(type.equals("location_ready")){deliverSharedLocation();}
                 else if(type.equals("location_ack")){
@@ -87,6 +89,10 @@ public class MainActivity extends BridgeActivity {
     @Override protected void onNewIntent(Intent intent){
         super.onNewIntent(intent);
         if(intent==null)return;
+        if(DriverService.VIEW_ORDER.equals(intent.getAction())){
+            if(DriverService.running)startService(new Intent(this,DriverService.class).setAction("view").putExtra("orderId",intent.getStringExtra("orderId")));
+            setIntent(new Intent(this,MainActivity.class).setAction(Intent.ACTION_MAIN));return;
+        }
         String text=null;
         if(Intent.ACTION_SEND.equals(intent.getAction())){
             CharSequence shared=intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
