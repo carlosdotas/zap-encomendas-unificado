@@ -477,7 +477,7 @@ function readProofBody(req){
 }
 async function orderRoutes(req,res,path) {
  if(!path.startsWith('/api/orders') && path!=='/api/driver/orders') return false;
- if(!['GET','POST','PUT'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true;}
+ if(!['GET','POST','PUT','DELETE'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true;}
  if(req.method!=='GET' && req.headers.origin) {
    let originHost='';try{originHost=new URL(req.headers.origin).host}catch{}
    const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();
@@ -506,6 +506,31 @@ async function orderRoutes(req,res,path) {
     if(proofs.length){const [images]=await pool.execute('SELECT id,proof_id FROM zap_order_proof_photos WHERE proof_id IN ('+proofs.map(()=>'?').join(',')+') ORDER BY id',proofs.map(p=>p.id));photos=images;}}
    const proofMap=new Map(proofs.map(p=>[String(p.order_id),{id:String(p.id),action:p.action,createdAt:p.created_at,photoCount:Number(p.photo_count),photoIds:photos.filter(ph=>String(ph.proof_id)===String(p.id)).map(ph=>String(ph.id))}]));
    sendJson(res,200,{orders:rows.map(row=>({...mapOrder(row),proof:proofMap.get(String(row.id))||null}))});return true;
+ }
+ if(req.method==='DELETE' && path==='/api/orders'){
+   if(rateLimit(req,'orders')){sendJson(res,429,{error:'Muitas tentativas. Aguarde alguns minutos.'});return true;}
+   let body;try{body=await readBody(req)}catch{sendJson(res,400,{error:'Dados inválidos'});return true;}
+   const ids=body?.ids;
+   if(!Array.isArray(ids)||ids.length===0||ids.length>100||ids.some(id=>!/^\\d+$/.test(String(id)))||new Set(ids.map(String)).size!==ids.length){
+     sendJson(res,400,{error:'Selecione entre 1 e 100 pedidos válidos, sem repetições.'});return true;
+   }
+   const conn=await pool.getConnection();
+   try{
+     await conn.beginTransaction();
+     const placeholders=ids.map(()=>'?').join(',');
+     const [owned]=await conn.execute('SELECT id FROM zap_order_entries WHERE owner_user_id=? AND id IN ('+placeholders+') FOR UPDATE',[user.id,...ids]);
+     if(owned.length!==ids.length){await conn.rollback();sendJson(res,403,{error:'Um ou mais pedidos não pertencem a esta transportadora.'});return true;}
+     const [proofs]=await conn.execute('SELECT id FROM zap_order_proofs WHERE order_id IN ('+placeholders+')',ids);
+     if(proofs.length){
+       const proofIds=proofs.map(p=>p.id);
+       await conn.execute('DELETE FROM zap_order_proof_photos WHERE proof_id IN ('+proofIds.map(()=>'?').join(',')+')',proofIds);
+       await conn.execute('DELETE FROM zap_order_proofs WHERE id IN ('+proofIds.map(()=>'?').join(',')+')',proofIds);
+     }
+     const [result]=await conn.execute('DELETE FROM zap_order_entries WHERE owner_user_id=? AND id IN ('+placeholders+')',[user.id,...ids]);
+     await conn.commit();
+     sendJson(res,200,{ok:true,deleted:result.affectedRows});return true;
+   }catch(err){try{await conn.rollback()}catch{}throw err}
+   finally{conn.release()}
  }
  const match=path.match(/^\/api\/orders\/(\d+)$/);
  if(!((req.method==='POST' && path==='/api/orders')||(req.method==='PUT' && match))) {sendJson(res,404,{error:'Pedido não encontrado'});return true;}
