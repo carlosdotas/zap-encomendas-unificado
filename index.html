@@ -1216,7 +1216,7 @@ const [samePlaceDriverJobs,setSamePlaceDriverJobs]=useState(null);
 const [navMenuOpen,setNavMenuOpen]=useState(false);
 function navigateToJob(job){const coords=job.lat+','+job.lng;const url=navProvider==='waze'?'https://waze.com/ul?ll='+encodeURIComponent(coords)+'&navigate=yes':'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(coords);const win=window.open(url,'_blank','noopener,noreferrer');if(!win)window.location.href=url;}
 const [connectionNotice,setConnectionNotice]=useState(null);const [callConnection,setCallConnection]=useState('connecting');
-const [vehicleNotice,setVehicleNotice]=useState(true);const [cameraJob,setCameraJob]=useState(null);const [cameraImages,setCameraImages]=useState([]);const [cameraPreview,setCameraPreview]=useState(-1);const [cameraError,setCameraError]=useState('');const [cameraFacing,setCameraFacing]=useState('environment');const cameraVideoRef=useRef(null);const cameraStreamRef=useRef(null);const cameraFileRef=useRef(null);const [selectedJob,setSelectedJob]=useState(null);const routeLayerRef=useRef(null),routeTargetRef=useRef(null),routeRequestRef=useRef(0);const [routeStatus,setRouteStatus]=useState('');const [gpsPoint,setGpsPoint]=useState(null);const gpsWatchRef=useRef(null),gpsAccuracyRef=useRef(null),gpsFirstFixRef=useRef(true),gpsPointRef=useRef(null);const [gpsStatus,setGpsStatus]=useState("Aguardando GPS");const [completedJobs,setCompletedJobs]=useState({});const completedRef=useRef({});const [completedDetail,setCompletedDetail]=useState(null);
+const [vehicleNotice,setVehicleNotice]=useState(true);const [cameraJob,setCameraJob]=useState(null);const [cameraImages,setCameraImages]=useState([]);const [cameraPreview,setCameraPreview]=useState(-1);const [cameraError,setCameraError]=useState('');const [cameraFacing,setCameraFacing]=useState('environment');const cameraVideoRef=useRef(null);const cameraStreamRef=useRef(null);const cameraFileRef=useRef(null);const [selectedJob,setSelectedJob]=useState(null);const routeLayerRef=useRef(null),routeTargetRef=useRef(null),routeRequestRef=useRef(0);const [routeStatus,setRouteStatus]=useState('');const [gpsPoint,setGpsPoint]=useState(null);const gpsWatchRef=useRef(null),gpsAccuracyRef=useRef(null),gpsFirstFixRef=useRef(true),gpsPointRef=useRef(null);const [gpsStatus,setGpsStatus]=useState("Aguardando GPS");const presenceLastSentRef=useRef(0);const [completedJobs,setCompletedJobs]=useState({});const completedRef=useRef({});const [completedDetail,setCompletedDetail]=useState(null);
 useEffect(()=>{const t=setTimeout(()=>setVehicleNotice(false),4500);return()=>clearTimeout(t)},[]);
 useEffect(()=>{
 let timer;
@@ -1430,6 +1430,10 @@ renderJobClusters();const resizeTimer=setTimeout(()=>map.invalidateSize(),150);r
  const point=[position.coords.latitude,position.coords.longitude];
  if(!point.every(Number.isFinite))return;
  gpsPointRef.current=point;setGpsPoint(point);setGpsStatus('GPS ativo');
+ if(Date.now()-presenceLastSentRef.current>=12000){
+  presenceLastSentRef.current=Date.now();
+  fetch('/api/driver/presence',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:point[0],lng:point[1],vehicle:activeVehicle})}).catch(()=>{});
+ }
  if(!markerRef.current){
  const icon=L.divIcon({className:'zap-driver-location-icon',html:'<div class="zap-driver-location-pulse"><div class="zap-driver-location-dot"></div></div>',iconSize:[44,44],iconAnchor:[22,22]});
  markerRef.current=L.marker(point,{icon,zIndexOffset:1200,title:'Localização do motorista'}).addTo(map).bindPopup('Sua localização atual');
@@ -1451,7 +1455,7 @@ renderJobClusters();const resizeTimer=setTimeout(()=>map.invalidateSize(),150);r
  catch(e){setGpsStatus('GPS indisponível');setToast('Não foi possível iniciar o GPS')}
  }
  function locate(){const map=mapRef.current;if(gpsPointRef.current&&map){map.flyTo(gpsPointRef.current,17,{duration:.6});return}gpsFirstFixRef.current=true;startDriverGps();setToast('Buscando localização do motorista...')}
- useEffect(()=>{const timer=setTimeout(startDriverGps,350);return()=>{clearTimeout(timer);if(gpsWatchRef.current!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatchRef.current);gpsWatchRef.current=null}}},[]);
+ useEffect(()=>{const timer=setTimeout(startDriverGps,350);const heartbeat=setInterval(()=>{const p=gpsPointRef.current;if(p){presenceLastSentRef.current=0;fetch('/api/driver/presence',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:p[0],lng:p[1],vehicle:activeVehicle})}).catch(()=>{})}},30000);return()=>{clearTimeout(timer);clearInterval(heartbeat);if(gpsWatchRef.current!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatchRef.current);gpsWatchRef.current=null}fetch('/api/driver/presence',{method:'DELETE',credentials:'same-origin',keepalive:true}).catch(()=>{})}},[]);
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),3500);return()=>clearTimeout(t)},[toast]);
  return <div className={"map-page"+(!showMarkerLabels?" driver-hide-marker-labels":"")}><div id="map" className="map-canvas"/><div className="top-notices" aria-live="polite">
 {connectionNotice&&<div className={'notice-pill '+(connectionNotice==='online'?'notice-online':'notice-offline')}><Icon name={connectionNotice==='online'?'check':'close'}/><span>{connectionNotice==='online'?'Internet restabelecida':'Sem conexão com a internet'}</span></div>}{callConnection==='offline'&&navigator.onLine&&<div className="notice-pill notice-offline" role="status"><Icon name="refresh-cw"/><span>Chamadas desconectadas. Reconectando...</span></div>}
@@ -1517,7 +1521,7 @@ function ApkDownload(){
 }
 function RoleChoice({onChoose}){return <main className="role-screen"><section className="role-panel"><Logo/><h1>Bem-vindo à Zap Encomendas</h1><p>Escolha como deseja utilizar a plataforma.</p><button className="role-choice" onClick={()=>onChoose('transportadora')}><Icon name="truck"/><span><strong>Transportadora</strong><small>Cadastre e acompanhe pedidos de coleta, entrega e troca</small></span><Icon name="arrow"/></button><button className="role-choice" onClick={()=>onChoose('motorista')}><Icon name="car"/><span><strong>Motorista</strong><small>Receba chamadas, aceite pedidos e execute serviços</small></span><Icon name="arrow"/></button><button className="role-choice" onClick={()=>onChoose('administrador')}><Icon name="menu"/><span><strong>Administração</strong><small>Dados gerais de usuários, pedidos e operações</small></span><Icon name="arrow"/></button><ApkDownload/></section></main>}
 function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsumed}){
- const mapEl=useRef(null),mapRef=useRef(null),pinRef=useRef(null),orderLayerRef=useRef(null),searchLayerRef=useRef(null),instructionsRef=useRef(null),sheetTouchRef=useRef(null),addressSearchRef=useRef(null);
+ const mapEl=useRef(null),mapRef=useRef(null),pinRef=useRef(null),orderLayerRef=useRef(null),onlineDriverLayerRef=useRef(null),searchLayerRef=useRef(null),instructionsRef=useRef(null),sheetTouchRef=useRef(null),addressSearchRef=useRef(null);
  useEffect(()=>{
   const root=document.querySelector('.carrier-map-page');
   if(!root||window.ZapViewport?.managed)return;
@@ -1756,7 +1760,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
  }
  // A localização da transportadora só é solicitada após ação explícita do usuário.
  function carrierZoom(amount){const map=mapRef.current;if(map)map.setZoom(map.getZoom()+amount)}
- useEffect(()=>{if(!mapEl.current||mapRef.current||typeof L==='undefined')return;const map=L.map(mapEl.current,{zoomControl:false}).setView([-16.686,-49.265],13);L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri',maxZoom:19}).addTo(map);mapRef.current=map;orderLayerRef.current=L.layerGroup().addTo(map);searchLayerRef.current=L.layerGroup().addTo(map);const timer=setTimeout(()=>map.invalidateSize(),100);return()=>{clearTimeout(timer);map.remove();mapRef.current=null}},[]);
+ useEffect(()=>{if(!mapEl.current||mapRef.current||typeof L==='undefined')return;const map=L.map(mapEl.current,{zoomControl:false}).setView([-16.686,-49.265],13);L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri',maxZoom:19}).addTo(map);mapRef.current=map;orderLayerRef.current=L.layerGroup().addTo(map);onlineDriverLayerRef.current=L.layerGroup().addTo(map);searchLayerRef.current=L.layerGroup().addTo(map);const timer=setTimeout(()=>map.invalidateSize(),100);return()=>{clearTimeout(timer);map.remove();mapRef.current=null}},[]);
  useEffect(()=>{
   if(!sharedLocation){setShareBusy(false);setShareError('');setShareReplacement(false);sharedOpeningIdRef.current=null;return;}
   setShareError('');
@@ -1765,6 +1769,30 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   return()=>{sharedRequestRef.current++;};
  },[sharedLocation?.id]);
 
+ useEffect(()=>{
+  let cancelled=false;
+  async function refreshOnlineDrivers(){
+   try{
+    const response=await fetch('/api/carrier/online-drivers',{credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw Error('Falha ao consultar motoristas');
+    const data=await response.json();
+    if(cancelled)return;
+    const layer=onlineDriverLayerRef.current;
+    if(!layer||!window.L)return;
+    layer.clearLayers();
+    for(const driver of data.drivers||[]){
+     const lat=Number(driver.lat),lng=Number(driver.lng);
+     if(!Number.isFinite(lat)||!Number.isFinite(lng))continue;
+     const marker=L.circleMarker([lat,lng],{radius:11,color:'#fff',weight:3,fillColor:'#16824c',fillOpacity:1}).addTo(layer);
+     const label=document.createElement('div');label.textContent=String(driver.name||'Profissional online');
+     marker.bindTooltip(label.textContent,{direction:'top'});
+    }
+   }catch{}
+  }
+  refreshOnlineDrivers();
+  const timer=setInterval(refreshOnlineDrivers,15000);
+  return()=>{cancelled=true;clearInterval(timer);onlineDriverLayerRef.current?.clearLayers()};
+ },[]);
  const safeText=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  useEffect(()=>{const map=mapRef.current,layer=orderLayerRef.current;if(!map||!layer)return;
  layer.clearLayers();
