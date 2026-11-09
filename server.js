@@ -370,7 +370,7 @@ function mapOrder(row) {
 }
 
 async function quickClientRoutes(req,res,path){
- if(path!=='/api/clients'||!['GET','POST'].includes(req.method))return false;
+ if(path!=='/api/clients'||!['GET','POST','PUT'].includes(req.method))return false;
  await ensureDatabase();
  if(!databaseStatus.ok||migrationStatus!=='atualizado'){sendJson(res,503,{error:'Banco indisponível'});return true;}
  const user=await getSession(req);
@@ -387,6 +387,13 @@ async function quickClientRoutes(req,res,path){
  const lat=body.lat==null?null:Number(body.lat),lng=body.lng==null?null:Number(body.lng);
  if(name.length<2||name.length>160||contact.length<2||contact.length>160||!/^\d{10,11}$/.test(phone)||![11,14].includes(document.length)||address.length<5||address.length>600||(lat!==null&&(!Number.isFinite(lat)||lat < -90||lat>90))||(lng!==null&&(!Number.isFinite(lng)||lng < -180||lng>180))||((lat===null)!==(lng===null))){
   sendJson(res,400,{error:'Informe nome, contato, CPF/CNPJ, telefone e localização.'});return true;
+ }
+ if(req.method==='PUT'){
+  const id=String(body.id||'').trim();
+  if(!/^[0-9]+$/.test(id)){sendJson(res,400,{error:'Cliente inválido'});return true;}
+  const [result]=await pool.execute('UPDATE zap_quick_clients SET name=?,contact_name=?,document_number=?,phone=?,address=?,latitude=?,longitude=? WHERE id=? AND owner_user_id=?',[name,contact,document,phone,address,lat,lng,id,user.id]);
+  if(!result.affectedRows){sendJson(res,404,{error:'Cliente não encontrado nesta transportadora'});return true;}
+  sendJson(res,200,{client:{id,name,contactName:contact,document,phone,address,lat,lng}});return true;
  }
  const [result]=await pool.execute('INSERT INTO zap_quick_clients (owner_user_id,name,contact_name,document_number,phone,address,latitude,longitude) VALUES (?,?,?,?,?,?,?,?)',[user.id,name,contact,document,phone,address,lat,lng]);
  sendJson(res,201,{client:{id:String(result.insertId),name,contactName:contact,document,phone,address,lat,lng}});return true;
