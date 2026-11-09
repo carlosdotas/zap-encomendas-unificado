@@ -69,7 +69,8 @@ const migrations = [
   [12, ["CREATE TABLE IF NOT EXISTS zap_carrier_driver_settings (carrier_id BIGINT UNSIGNED PRIMARY KEY, configured TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_carrier_allowed_drivers (carrier_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, PRIMARY KEY (carrier_id,driver_id), KEY idx_allowed_driver (driver_id)) ENGINE=InnoDB"]],
   [13, ["ALTER TABLE zap_order_entries ADD COLUMN value_items JSON NULL"]],
   [14, ["CREATE TABLE IF NOT EXISTS zap_order_proofs (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, order_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, action ENUM('coleta','entrega','troca') NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_order_action (order_id,action), KEY idx_proof_order (order_id), KEY idx_proof_driver (driver_id)) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_order_proof_photos (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, proof_id BIGINT UNSIGNED NOT NULL, mime_type VARCHAR(32) NOT NULL, image_data LONGBLOB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_proof_photo (proof_id)) ENGINE=InnoDB"]],
-  [15, ["ALTER TABLE app_users ADD COLUMN city VARCHAR(80) NULL"]]
+  [15, ["SELECT 1"]],
+  [16, ["ALTER TABLE app_users ADD COLUMN city VARCHAR(80) NULL"]]
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
