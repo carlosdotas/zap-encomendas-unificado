@@ -40,9 +40,9 @@ module.exports=async function handler(req,res){
   const origin=req.headers.origin,host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();
   if(origin&&new URL(origin).host!==host)return json(res,403,{error:'Origem não autorizada'});
   const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
-  const rows=b.rows,allowed=new Set(['caixa_lancamentos','company','drivers','driver_tracking','locais','locations','merchandises','order_logs','orders','users','bills','clients','customers']);
+  const rows=b.rows,allowed=new Set(['caixa_lancamentos','company','drivers','driver_tracking','locais','locations','merchandises','order_logs','orders','users','bills','clients','customers','config_cities']);
   if(!Array.isArray(rows)||rows.length<1||rows.length>100)return json(res,400,{error:'Envie de 1 a 100 registros por lote'});
-  for(const r of rows)if(!r||!allowed.has(r.source_table)||!Number.isSafeInteger(r.source_id)||r.source_id<0||!r.payload||typeof r.payload!=='object'||Array.isArray(r.payload)||JSON.stringify(r.payload).length>30000)return json(res,400,{error:'Registro de importação inválido'});
+  for(let i=0;i<rows.length;i++){const r=rows[i];if(!r||!allowed.has(r.source_table)||!Number.isSafeInteger(r.source_id)||r.source_id<0||!r.payload||typeof r.payload!=='object'||Array.isArray(r.payload)||JSON.stringify(r.payload).length>30000)return json(res,400,{error:'Registro de importação inválido',index:i,source_table:r?.source_table||null,source_id:r?.source_id??null});}
   const client=await db().connect();
   try{
    await client.query('BEGIN');
