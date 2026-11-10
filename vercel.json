@@ -48,7 +48,7 @@
       "dest": "/api/index.js?admin=$1"
     },
     {
-      "src": "^/api/(clients|orders|financeiro|carrier/history)$",
+      "src": "^/api/(clients|orders|financeiro|carrier/history|carrier/actionable-orders)$",
       "dest": "/api/index.js?resource=$1"
     },
     {
