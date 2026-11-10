@@ -10,7 +10,7 @@ function db(){
   if(direct){
    const project=direct[1];
    const region=process.env.SUPABASE_DB_REGION||'sa-east-1';
-   const host=process.env.SUPABASE_POOLER_HOST||'aws-0-'+region+'.pooler.supabase.com';
+   const host=process.env.SUPABASE_POOLER_HOST||'aws-1-'+region+'.pooler.supabase.com';
    raw.hostname=host;
    raw.port='6543';
    raw.username='postgres.'+project;
