@@ -1613,8 +1613,14 @@ renderJobClusters();const resizeTimer=setTimeout(()=>map.invalidateSize(),150);r
 
 function AdminCarrierPassword({carrier}){
  const [open,setOpen]=useState(false),[password,setPassword]=useState(''),[confirm,setConfirm]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
- async function submit(e){e.preventDefault();setMessage('');if(password!==confirm){setMessage('As senhas não coincidem');return}if(password.length<12||!/[a-zA-Z]/.test(password)||!/[0-9]/.test(password)){setMessage('Use pelo menos 12 caracteres, letras e números');return}setBusy(true);try{const r=await fetch('/api/admin/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({transportadora_id:carrier.id,nova_senha:password})});const d=await r.json();if(!r.ok)throw Error(d.error||'Falha ao alterar');setMessage('Senha alterada. Sessões anteriores encerradas.');setPassword('');setConfirm('')}catch(err){setMessage(err.message)}finally{setBusy(false)}}
+ async function submit(e){e.preventDefault();setMessage('');if(password!==confirm){setMessage('As senhas não coincidem');return}if(password.length<12||!/[a-zA-Z]/.test(password)||!/[0-9]/.test(password)){setMessage('Use pelo menos 12 caracteres, letras e números');return}setBusy(true);try{const r=await fetch('/api/admin/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({transportadora_id:carrier.id,nova_senha:password})});const d=await zapReadApiJson(r);setMessage('Senha alterada. Sessões anteriores encerradas.');setPassword('');setConfirm('')}catch(err){setMessage(err.message)}finally{setBusy(false)}}
  return <div style={{minWidth:160}}><button type="button" className="zap-admin-list-button" onClick={()=>setOpen(v=>!v)}>{open?'Fechar':'Alterar senha'}</button>{open&&<form onSubmit={submit} style={{display:'grid',gap:8,marginTop:8}}><input aria-label="Nova senha" type="password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} minLength="12" placeholder="Nova senha forte" required/><input aria-label="Confirmar senha" type="password" autoComplete="new-password" value={confirm} onChange={e=>setConfirm(e.target.value)} minLength="12" placeholder="Confirmar senha" required/><button type="submit" disabled={busy}>{busy?'Salvando…':'Salvar nova senha'}</button></form>}{message&&<small role="status">{message}</small>}</div>;
+}
+async function zapReadApiJson(response){
+ const raw=await response.text();let data;
+ try{data=JSON.parse(raw)}catch{throw Error('O servidor retornou uma resposta inválida (HTTP '+response.status+'). Verifique a API e tente novamente.')}
+ if(!response.ok)throw Error(data.error||'Falha na API (HTTP '+response.status+')');
+ return data;
 }
 function AdminListing({section}){
  const endpoints={drivers:'/api/admin/drivers',carriers:'/api/admin/carriers',administrators:'/api/admin/administrators',orders:'/api/admin/orders'};
@@ -1622,7 +1628,7 @@ function AdminListing({section}){
  const [search,setSearch]=useState(''),[term,setTerm]=useState(''),[page,setPage]=useState(1),[result,setResult]=useState({items:[],total:0,limit:25}),[busy,setBusy]=useState(true),[error,setError]=useState('');
  useEffect(()=>{setPage(1);setSearch('');setTerm('')},[section]);
  useEffect(()=>{let active=true;setBusy(true);setError('');
-  fetch(endpoints[section]+'?page='+page+'&search='+encodeURIComponent(term),{credentials:'same-origin',cache:'no-store'}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Não foi possível carregar os dados');return d}).then(d=>{if(active)setResult(d)}).catch(e=>{if(active)setError(e.message)}).finally(()=>{if(active)setBusy(false)});
+  fetch(endpoints[section]+'?page='+page+'&search='+encodeURIComponent(term),{credentials:'same-origin',cache:'no-store'}).then(async r=>{return await zapReadApiJson(r)}).then(d=>{if(active)setResult(d)}).catch(e=>{if(active)setError(e.message)}).finally(()=>{if(active)setBusy(false)});
   return()=>{active=false};
  },[section,page,term]);
  const isOrders=section==='orders';
@@ -1639,7 +1645,7 @@ function AdminListing({section}){
 function AdminDashboard({onBack}){
  const [data,setData]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[query,setQuery]=useState(''),[section,setSection]=useState('overview');
  useZapBack(()=>{if(section!=='overview'){setSection('overview');return true;}return false;},10,section!=='overview');
- const refresh=async(silent=false)=>{if(!silent)setLoading(true);try{const r=await fetch('/api/admin/overview',{credentials:'same-origin',cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error||'Falha ao carregar administração');setData(d);setError('')}catch(e){setError(e.message)}finally{setLoading(false)}};
+ const refresh=async(silent=false)=>{if(!silent)setLoading(true);try{const r=await fetch('/api/admin/overview',{credentials:'same-origin',cache:'no-store'});const d=await zapReadApiJson(r);setData(d);setError('')}catch(e){setError(e.message)}finally{setLoading(false)}};
  useEffect(()=>{refresh();const t=setInterval(()=>refresh(true),30000);return()=>clearInterval(t)},[]);
  const orders=data?.recentOrders||[];
  const filtered=orders.filter(o=>[o.id,o.place,o.carrier_name,o.service_type,o.status].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))));
