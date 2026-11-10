@@ -1,9 +1,46 @@
 {
   "version": 2,
-  "rewrites": [
+  "builds": [
     {
-      "source": "/health",
-      "destination": "/api/index?health=1"
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/auth/[action].js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "*.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.css",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.json",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "^/api/auth/([^/]+)$",
+      "dest": "/api/auth/[action].js?action=$1"
+    },
+    {
+      "src": "^/health$",
+      "dest": "/api/index.js?health=1"
+    },
+    {
+      "src": "^/$",
+      "dest": "/index.html"
+    },
+    {
+      "handle": "filesystem"
     }
   ]
 }
