@@ -127,6 +127,18 @@ module.exports=async function handler(req,res){
   }
   return json(res,405,{error:'Método não permitido'});
  }
+ if(path==='/api/carrier/actionable-orders'){
+  const u=await session(req);if(!u)return json(res,401,{error:'Autenticação necessária'});
+  if(u.role!=='transportadora'||!u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
+  if(req.method!=='GET')return json(res,405,{error:'Método não permitido'});
+  const page=Math.max(0,Math.min(10000,Number.parseInt(url.searchParams.get('page')||'0',10)||0));
+  const term=String(url.searchParams.get('q')||'').trim().slice(0,100);
+  const where="o.transportadora_id=$1 and o.legacy_order_id is not null and (coalesce(l.payload->>'stage','') not in ('finalizado','entregue') or coalesce(l.payload->>'payment_status','') not in ('pago','paid')) and ($2='' or o.client_name ilike '%'||$2||'%' or o.place ilike '%'||$2||'%' or o.legacy_order_id::text=$2)";
+  const base=" from zap_app.zap_order_entries o join legacy_hostinger.raw_records l on l.source_table='orders' and l.source_id=o.legacy_order_id where "+where;
+  const r=await db().query("select o.id,o.legacy_order_id,o.place,o.address,o.client_name,o.service_type,o.vehicle_type,o.created_at,l.payload->>'date' order_date,l.payload->>'stage' original_stage,l.payload->>'payment_status' payment_status,l.payload->>'total' total_value"+base+" order by o.created_at desc,o.id desc limit 31 offset $3",[u.transportadora_id,term,page*30]);
+  const total=await db().query("select count(*)::int n"+base,[u.transportadora_id,term]);
+  return json(res,200,{ok:true,items:r.rows.slice(0,30),total:total.rows[0].n,hasMore:r.rows.length>30,page});
+ }
  if(path==='/api/carrier/history'){
   const u=await session(req);if(!u)return json(res,401,{error:'Autenticação necessária'});
   if(u.role!=='transportadora'||!u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
