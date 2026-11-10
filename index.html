@@ -1957,6 +1957,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
  const groupedCarrierOrders=visibleCarrierOrders.reduce((groups,o)=>{const day=orderDay(o);if(!groups[day])groups[day]=[];groups[day].push(o);return groups},{});
  const orderCardStatus=o=>o.status==='concluido'?'Entregue':o.status==='aceito'?'Aceito':o.status==='aguardando_motorista'?'Aguardando':'Pendente';
   const [acceptedNotice,setAcceptedNotice]=useState(null);
+ const [historicalMapOrders,setHistoricalMapOrders]=useState([]);
  const carrierOrderStatusRef=useRef(new Map()),carrierOrderStatusReadyRef=useRef(false);
  function updateCarrierOrders(next){
   const previous=carrierOrderStatusRef.current;
@@ -1974,8 +1975,8 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   carrierOrderStatusReadyRef.current=true;
   setOrders(prev=>JSON.stringify(prev)===JSON.stringify(next)?prev:next);
  }
- useEffect(()=>{let active=true;const refresh=async()=>{try{const response=await fetch('/api/orders',{credentials:'same-origin',cache:'no-store'});if(!response.ok)return;const data=await response.json();if(active)updateCarrierOrders(data.orders||[])}catch{}};const timer=setInterval(refresh,5000);return()=>{active=false;clearInterval(timer)}},[]);
- useEffect(()=>{let active=true;fetch('/api/orders',{credentials:'same-origin'}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Falha ao carregar pedidos');return d}).then(d=>{if(active)updateCarrierOrders(d.orders||[])}).catch(err=>{if(active)setMessage(err.message)});return()=>{active=false}},[]);
+ useEffect(()=>{let active=true;const refresh=async()=>{try{const response=await fetch('/api/orders',{credentials:'same-origin',cache:'no-store'});if(!response.ok)return;const data=await response.json();if(active){updateCarrierOrders(data.orders||[]);setHistoricalMapOrders(data.mapOrders||[])}}catch{}};const timer=setInterval(refresh,5000);return()=>{active=false;clearInterval(timer)}},[]);
+ useEffect(()=>{let active=true;fetch('/api/orders',{credentials:'same-origin'}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Falha ao carregar pedidos');return d}).then(d=>{if(active){updateCarrierOrders(d.orders||[]);setHistoricalMapOrders(d.mapOrders||[])}}).catch(err=>{if(active)setMessage(err.message)});return()=>{active=false}},[]);
  const [showMarkerLabels,setShowMarkerLabels]=useState(()=>{try{return localStorage.getItem('zap_carrier_marker_labels')!=='false'}catch{return true}});
  const [samePlaceOrders,setSamePlaceOrders]=useState(null);
  const [driversDialog,setDriversDialog]=useState(false),[carrierDrivers,setCarrierDrivers]=useState([]),[driversLoading,setDriversLoading]=useState(false),[driversSaving,setDriversSaving]=useState(false),[driversError,setDriversError]=useState('');
@@ -2095,7 +2096,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
  useEffect(()=>{const map=mapRef.current,layer=orderLayerRef.current;if(!map||!layer)return;
  layer.clearLayers();
  const groups=new Map();
- orders.forEach(order=>{
+ [...orders,...historicalMapOrders].forEach(order=>{
   const lat=Number(order.lat),lng=Number(order.lng);
   if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
   const key=lat.toFixed(5)+','+lng.toFixed(5);
@@ -2112,7 +2113,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   const marker=L.marker([lat,lng],{icon,title:completed?(group.length+' serviços concluídos'):multiple?group.length+' pedidos neste local':String(order.place||'Pedido')});
   marker.on('click',()=>{if(multiple){setSamePlaceOrders(group);setViewOrder(null)}else{setViewOrder(order);setSamePlaceOrders(null)}setSelected(null);setMessage('')});
   marker.addTo(layer);
- });},[orders]);
+ });},[orders,historicalMapOrders]);
  // Resultados de busca ficam visíveis no mapa, com pinos numerados e clicáveis.
  useEffect(()=>{
   const map=mapRef.current,layer=searchLayerRef.current;
