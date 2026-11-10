@@ -14,15 +14,19 @@
       "use": "@vercel/static"
     },
     {
-      "src": "*.js",
-      "use": "@vercel/static"
-    },
-    {
       "src": "*.css",
       "use": "@vercel/static"
     },
     {
-      "src": "*.json",
+      "src": "navigation.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "location-input.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "shared-location.js",
       "use": "@vercel/static"
     }
   ],
