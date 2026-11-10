@@ -1346,6 +1346,22 @@ return `<div class="job-pin job-${item.type} job-vehicle-${item.vehicle}">
 <div class="job-badges"><span class="job-operation"><svg viewBox="0 0 24 24">${operationSymbols[item.type]}</svg>${label}</span><span class="job-badge job-type"><svg viewBox="0 0 24 24">${markerSymbols[item.vehicle]}</svg>${{moto:'Moto',carro:'Carro',utilitario:'Utilitário'}[item.vehicle]}</span><span class="job-badge job-distance"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6-7-12a7 7 0 1 1 14 0c0 6-7 12-7 12Z"/><circle cx="12" cy="9" r="2"/></svg>${distanceText(origin,item)}</span></div>
 </div></div></div>`;
 }
+// Etiquetas do mapa do profissional: layout compacto/completo do V1 (markers.ts).
+function v1DriverMarkerIcon(item,hideLabels=false){
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;'}[c]));
+ const kind=['coleta','entrega','troca'].includes(item.type)?item.type:'coleta';
+ const colors={coleta:['#0284c7','#075985'],entrega:['#ea580c','#9a3412'],troca:['#059669','#065f46']}[kind];
+ const name=esc(item.client||item.clientName||item.carrier||'Pedido');
+ const place=esc(item.place||'Local não informado');
+ const vehicle=esc(({moto:'Moto',carro:'Carro',utilitario:'Utilitário'})[item.vehicle]||item.vehicle||'Moto');
+ const label=({coleta:'Coleta',entrega:'Entrega',troca:'Troca'})[kind];
+ const icon=({coleta:'<path d="M3 7 12 2l9 5v10l-9 5-9-5z M3 7l9 5 9-5 M12 12v10"/>',entrega:'<path d="M3 11 12 3l9 8 M6 10v11h12V10"/>',troca:'<path d="M4 8h16m-4-4 4 4-4 4M20 16H4m4-4-4 4 4 4"/>'})[kind];
+ const pin='<div style="position:relative;width:32px;height:44px;flex:none"><svg width="32" height="44" viewBox="0 0 32 44"><path d="M16 1C7 1 1 8 1 16c0 9 8 19 15 27 7-8 15-18 15-27C31 8 25 1 16 1Z" fill="'+colors[0]+'" stroke="white" stroke-width="2.5"/></svg><span style="position:absolute;left:7px;top:8px;width:18px;height:18px;border-radius:50%;background:white;display:grid;place-items:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="'+colors[1]+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+icon+'</svg></span></div>';
+ const tags='<span style="background:'+colors[0]+';color:white;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700">'+label+'</span><span style="background:#2e7d32;color:white;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700">'+vehicle+'</span>';
+ const detail=hideLabels?'<div style="max-width:125px;padding:0 5px;font-size:11px;font-weight:800;color:'+colors[1]+';text-shadow:0 0 3px white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div>':'<div style="background:rgba(255,255,255,.94);border:2px solid white;border-radius:8px;padding:6px 8px;width:220px;box-shadow:0 3px 12px #0002;font-family:Arial,sans-serif;text-transform:uppercase"><div style="font-size:12px;font-weight:800;color:#2e7d32;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+name+'</div><div style="font-size:10px;font-weight:600;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:3px 0">'+place+'</div><div style="display:flex;gap:3px;flex-wrap:wrap">'+tags+'</div></div>';
+ const width=hideLabels?190:270;
+ return L.divIcon({className:'zap-v1-driver-marker',html:'<div style="width:'+width+'px;height:88px;display:flex;align-items:flex-end;gap:6px;filter:drop-shadow(0 2px 3px #0003)">'+pin+detail+'</div>',iconSize:[width,88],iconAnchor:[16,88]});
+}
 function DriverInstructions({text}){
  const value=String(text||'');
  const phonePattern=/(?:\+?55[\s().-]*)?(?:\(?[1-9][0-9]\)?[\s.-]*)?9?[0-9]{4}[\s.-]*[0-9]{4}/g;
@@ -1530,7 +1546,7 @@ baseTiles.addTo(map);
 let tileFailures=0;
 baseTiles.on('tileerror',()=>{tileFailures++;if(tileFailures===4){const warning=document.createElement('div');warning.className='zap-map-warning';warning.textContent='O serviço de mapas não está disponível nesta conexão. Configure um provedor de mapas autorizado para uso em produção.';map.getContainer().appendChild(warning)}});
 const jobsLayer=L.layerGroup().addTo(map);
-const jobs=registeredRequests.map(item=>{const icon=L.divIcon({className:'job-div-icon',html:markerHtml(item,gpsPointRef.current),iconSize:[399,154],iconAnchor:[29,154]});return {...item,marker:L.marker([item.lat,item.lng],{icon,title:item.place+' - '+item.type})}});
+const jobs=registeredRequests.map(item=>{const icon=v1DriverMarkerIcon(item,!showMarkerLabels);return {...item,marker:L.marker([item.lat,item.lng],{icon,title:item.place+' - '+item.type})}});
 jobs.forEach(job=>{job.marker.off('click');job.marker.on('click',()=>{setSelectedJob(job);showRouteToJob(job)});job.marker.unbindPopup()});jobsRef.current=jobs;
 function renderJobClusters(){
 jobsLayer.clearLayers();
@@ -1557,7 +1573,7 @@ jobsLayer.addLayer(cluster);
 }
 refreshRef.current=renderJobClusters;
 map.on('zoomend moveend',renderJobClusters);
-renderJobClusters();const resizeTimer=setTimeout(()=>map.invalidateSize(),150);return()=>{clearTimeout(resizeTimer);routeRequestRef.current++;routeLayerRef.current=null;markerRef.current=null;gpsAccuracyRef.current=null;incomingMarkerRef.current=null;refreshRef.current=null;jobsRef.current=[];map.remove();mapRef.current=null}},[registeredRequests,activeVehicle]);
+renderJobClusters();const resizeTimer=setTimeout(()=>map.invalidateSize(),150);return()=>{clearTimeout(resizeTimer);routeRequestRef.current++;routeLayerRef.current=null;markerRef.current=null;gpsAccuracyRef.current=null;incomingMarkerRef.current=null;refreshRef.current=null;jobsRef.current=[];map.remove();mapRef.current=null}},[registeredRequests,activeVehicle,showMarkerLabels]);
  async function showRouteToJob(job){
   routeTargetRef.current=job;
   const requestId=++routeRequestRef.current;
