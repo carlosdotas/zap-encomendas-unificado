@@ -31,6 +31,32 @@ module.exports=async function handler(req,res){
  try{
  if(path==='/health'){await db().query('select 1');return json(res,200,{ok:true,database:'postgresql',status:'connected'});}
 
+
+ if(path==='/api/admin/transportadoras'||path==='/api/admin/reset-password'){
+  const u=await session(req);
+  if(!u)return json(res,401,{error:'Faça login como administrador'});
+  if(u.role!=='administrador')return json(res,403,{error:'Acesso restrito à administração geral'});
+  if(path==='/api/admin/transportadoras'&&req.method==='GET'){
+   const r=await db().query("select t.id,t.nome,u.id as usuario_id,u.full_name from zap_app.transportadoras t join zap_app.app_users u on u.id=t.usuario_principal_id order by t.id");
+   return json(res,200,{ok:true,transportadoras:r.rows});
+  }
+  if(path==='/api/admin/reset-password'&&req.method==='POST'){
+   const origin=req.headers.origin,host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();
+   if(origin&&new URL(origin).host!==host)return json(res,403,{error:'Origem não autorizada'});
+   const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
+   const id=Number(b.transportadora_id),password=b.nova_senha;
+   if(!Number.isSafeInteger(id)||id<1||typeof password!=='string'||password.length<12||Buffer.byteLength(password)>256||!/[a-zA-Z]/.test(password)||!/[0-9]/.test(password))return json(res,400,{error:'Use uma senha com pelo menos 12 caracteres, letras e números'});
+   const salt=crypto.randomBytes(16).toString('hex'),encoded='scrypt:'+salt+':'+crypto.scryptSync(password,salt,64).toString('hex');
+   const client=await db().connect();
+   try{await client.query('BEGIN');
+    const r=await client.query('update zap_app.app_users u set password_hash=$1 from zap_app.transportadoras t where t.usuario_principal_id=u.id and t.id=$2 and u.role=$3 returning u.id',[encoded,id,'transportadora']);
+    if(!r.rowCount){await client.query('ROLLBACK');return json(res,404,{error:'Transportadora não encontrada'});}
+    await client.query('delete from zap_app.zap_login_sessions where user_id=$1',[r.rows[0].id]);
+    await client.query('COMMIT');return json(res,200,{ok:true,mensagem:'Senha atualizada e sessões anteriores encerradas'});
+   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  }
+  return json(res,405,{error:'Método não permitido'});
+ }
  if(path==='/api/financeiro'){
   const u=await session(req);
   if(!u)return json(res,401,{error:'Autenticação necessária'});
