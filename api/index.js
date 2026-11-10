@@ -127,6 +127,15 @@ module.exports=async function handler(req,res){
   }
   return json(res,405,{error:'Método não permitido'});
  }
+ if(path==='/api/carrier/pending-orders'){
+  const u=await session(req);if(!u)return json(res,401,{error:'Autenticação necessária'});
+  if(u.role!=='transportadora'||!u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
+  if(req.method!=='GET')return json(res,405,{error:'Método não permitido'});
+  const active=await db().query("select id,client_name,place,address,status,created_at,service_type,vehicle_type,legacy_order_id from zap_app.zap_order_entries where transportadora_id=$1 and legacy_order_id is null order by created_at desc limit 500",[u.transportadora_id]);
+  const legacy=Number(u.transportadora_id)===1?await db().query("select source_id as id,payload->>'client_name' client_name,coalesce(nullif(payload->>'dest_name',''),nullif(payload->>'orig_name',''),nullif(payload->>'dest_city',''),nullif(payload->>'orig_city','')) place,payload->>'stage' status,payload->>'date' order_date,payload->>'created_at' created_at,payload->>'order_type' service_type,payload->>'vehicle_type' vehicle_type,payload->>'total' total_value,payload->>'payment_status' payment_status from legacy_hostinger.raw_records where source_table='orders' and coalesce(payload->>'payment_status','') not in ('pago','paid') order by coalesce(nullif(payload->>'created_at','')::timestamptz, nullif(payload->>'date','')::timestamptz) desc nulls last limit 500"): {rows:[]};
+  const items=[...active.rows.filter(x=>!['pago','paid'].includes(String(x.payment_status||'').toLowerCase())).map(x=>({...x,origin:'current',order_id:x.id})),...legacy.rows.map(x=>({...x,origin:'legacy',order_id:x.id}))].sort((a,b)=>{const da=Date.parse(a.created_at||a.order_date||'')||0,db=Date.parse(b.created_at||b.order_date||'')||0;return db-da||Number(b.order_id)-Number(a.order_id)});
+  return json(res,200,{ok:true,items});
+ }
  if(path==='/api/carrier/actionable-orders'){
   const u=await session(req);if(!u)return json(res,401,{error:'Autenticação necessária'});
   if(u.role!=='transportadora'||!u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
