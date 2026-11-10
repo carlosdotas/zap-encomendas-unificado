@@ -2,7 +2,25 @@
 const crypto=require('node:crypto');
 const {Pool}=require('pg');
 let pool;
-function db(){if(!process.env.DATABASE_URL)throw Error('DATABASE_URL ausente');if(!pool)pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false},max:2,connectionTimeoutMillis:8000,options:'-c search_path=zap_app,public'});return pool;}
+function db(){
+ if(!process.env.DATABASE_URL)throw Error('DATABASE_URL ausente');
+ if(!pool){
+  const raw=new URL(process.env.DATABASE_URL);
+  const direct=/^db\\.([a-z0-9]+)\\.supabase\\.co$/.exec(raw.hostname);
+  if(direct){
+   const project=direct[1];
+   const region=process.env.SUPABASE_DB_REGION||'sa-east-1';
+   const host=process.env.SUPABASE_POOLER_HOST||'aws-0-'+region+'.pooler.supabase.com';
+   raw.hostname=host;
+   raw.port='6543';
+   raw.username='postgres.'+project;
+   raw.searchParams.delete('pgbouncer');
+   console.info('[PG API] Usando Supavisor transaction pooler:',host);
+  }
+  pool=new Pool({connectionString:raw.toString(),ssl:{rejectUnauthorized:false},max:2,connectionTimeoutMillis:8000,options:'-c search_path=zap_app,public'});
+ }
+ return pool;
+}
 function json(res,status,obj){res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(obj));}
 function parseCookie(req){return String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/)?.[1];}
 function userView(u){return {id:u.id,name:u.full_name,phone:u.phone,role:u.role,vehicles:String(u.vehicles||'').split(',').filter(Boolean)};}
