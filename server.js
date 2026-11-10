@@ -824,6 +824,22 @@ callWss.on('connection',(ws,req,user)=>{
 const server = http.createServer(async (req,res) => {
   const path = new URL(req.url || '/', 'http://localhost').pathname;
   try {
+  // No ambiente PostgreSQL, reutiliza o mesmo controlador HTTP da Vercel.
+  // As rotas ainda não implementadas nessa API retornam 404; não misturamos
+  // silenciosamente dados MySQL com Supabase na mesma sessão.
+  if (process.env.DATABASE_URL && (path==='/health' || path.startsWith('/api/'))) {
+    const pgApi=require('./api/index.js');
+    const chunks=[];
+    for await (const chunk of req) chunks.push(chunk);
+    const rawBody=Buffer.concat(chunks).toString('utf8');
+    if(rawBody){
+      try{req.body=JSON.parse(rawBody)}catch{
+        sendJson(res,400,{error:'Corpo JSON inválido'});return;
+      }
+    }
+    await pgApi(req,res);
+    return;
+  }
   if (apkDownload(req,res,path)) return;
   if ((req.method==='GET'||req.method==='HEAD')&&['/navigation.js','/location-input.js','/shared-location.js'].includes(path)) {
     const script=fs.readFileSync(pathModule.join(__dirname,path.slice(1)));
