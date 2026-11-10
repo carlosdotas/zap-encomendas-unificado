@@ -839,7 +839,8 @@ const server = http.createServer(async (req,res) => {
   if (await driverPresenceRoutes(req,res,path)) return;
   if (await carrierDriverRoutes(req,res,path)) return;
   if (path.startsWith('/api/driver/orders/') && await orderProofRoutes(req,res,path)) return;
-  if (path.startsWith('/api/orders') || path==='/api/driver/orders') {if(await financeRoutes(req,res,path) || await orderRoutes(req,res,path)) return;}
+  if (path.startsWith('/api/finance/')) {if(await financeRoutes(req,res,path)) return;}
+  if (path.startsWith('/api/orders') || path==='/api/driver/orders') {if(await orderRoutes(req,res,path)) return;}
   if (path.startsWith('/api/auth/')) {
     if(await authRoutes(req,res,path)) return;
   }
