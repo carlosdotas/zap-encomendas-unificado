@@ -860,6 +860,7 @@ const server = http.createServer(async (req,res) => {
   if (path.startsWith('/api/auth/')) {
     if(await authRoutes(req,res,path)) return;
   }
+  if ((req.method === 'GET'||req.method==='HEAD') && ['/financeiro','/financeiro/','/administracao','/administracao/'].includes(path)) { const file=path.startsWith('/financeiro')?'financeiro.html':'index.html';fs.readFile(pathModule.join(__dirname,file),(err,html)=>{if(err)return sendJson(res,404,{error:'Página indisponível'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(req.method==='HEAD'?undefined:html)});return; }
   if (req.method === 'GET' && path === '/') {
     fs.readFile(pathModule.join(__dirname, 'index.html'), (err, html) => {
       if (err) { console.error('[HTML]', err.message); sendJson(res, 500, {error:'Frontend indisponível'}); return; }
@@ -904,9 +905,9 @@ const server = http.createServer(async (req,res) => {
 server.on('upgrade',async(req,socket,head)=>{try{if(new URL(req.url,'http://localhost').pathname!=='/ws/calls'){socket.destroy();return}const origin=req.headers.origin;const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();if(origin){let originHost='';try{originHost=new URL(origin).host}catch{}if(!originHost||originHost!==host){socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');socket.destroy();return}}await ensureDatabase();const user=await getSession(req);if(!user||!['motorista','transportadora'].includes(user.role)){socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');socket.destroy();return}callWss.handleUpgrade(req,socket,head,ws=>callWss.emit('connection',ws,req,user))}catch{socket.destroy()}});
 server.listen(PORT, HOST, () => {
   console.log('[ZAP] Servidor online na porta '+PORT);
-  ensureDatabase(true).then(recoverPendingCalls).catch(err => console.error('[BOOT]',err.message));
-  const timer=setInterval(()=>{if(!databaseStatus.ok || migrationStatus!=='atualizado') ensureDatabase().catch(err=>console.error('[RETRY]',err.message));},30000);
+  if (!process.env.DATABASE_URL) ensureDatabase(true).then(recoverPendingCalls).catch(err => console.error('[BOOT]',err.message));
+  const timer=setInterval(()=>{if(!process.env.DATABASE_URL && (!databaseStatus.ok || migrationStatus!=='atualizado')) ensureDatabase().catch(err=>console.error('[RETRY]',err.message));},30000);
   timer.unref();
-  const recovery=setInterval(()=>recoverPendingCalls().catch(err=>console.error('[CALL SYNC]',err.message)),30000);recovery.unref();
+  const recovery=setInterval(()=>(!process.env.DATABASE_URL && recoverPendingCalls().catch(err=>console.error('[CALL SYNC]',err.message)),30000);recovery.unref();
 });
 process.on('SIGTERM', async () => { server.close(); if(pool) await pool.end(); });
