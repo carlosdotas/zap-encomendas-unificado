@@ -45,7 +45,7 @@ module.exports=async function handler(req,res){
    return json(res,200,{ok:true,users:roles,orders:{total:orders.rows[0].total,byStatus:Object.fromEntries(statuses.rows.map(x=>[x.status,x.total]))},recentOrders:recent.rows});
   }
   const page=Math.max(1,Math.min(10000,parseInt(url.searchParams.get('page'),10)||1)),limit=25,term=String(url.searchParams.get('search')||'').slice(0,100);
-  const pattern='%'+term.replace(/[\\%_]/g,'\\ if(path==='/api/admin/transportadoras'||path==='/api/admin/reset-password'){')+'%';
+  const pattern='%'+term.replace(/[\\%_]/g,'\\$&')+'%';
   if(path==='/api/admin/orders'){
    const count=await db().query("select count(*)::int as total from zap_app.zap_order_entries");
    const rows=await db().query("select o.id,o.place,o.client_name,o.service_type,o.status,o.created_at,t.nome as carrier_name from zap_app.zap_order_entries o left join zap_app.transportadoras t on t.id=o.transportadora_id order by o.id desc limit 25 offset $1",[(page-1)*limit]);
