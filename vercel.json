@@ -32,6 +32,10 @@
   ],
   "routes": [
     {
+      "src": "^/api/admin/(overview|drivers|carriers|administrators|orders)$",
+      "dest": "/api/index.js?admin=$1"
+    },
+    {
       "src": "^/api/auth/([^/]+)$",
       "dest": "/api/auth/[action].js?action=$1"
     },
