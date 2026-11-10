@@ -36,7 +36,7 @@
       "dest": "/api/auth/[action].js?action=$1"
     },
     {
-      "src": "^/api/(clients|orders)$",
+      "src": "^/api/(clients|orders|financeiro)$",
       "dest": "/api/index.js?resource=$1"
     },
     {
@@ -46,6 +46,10 @@
     {
       "src": "^/$",
       "dest": "/index.html"
+    },
+    {
+      "src": "^/financeiro/?$",
+      "dest": "/financeiro.html"
     },
     {
       "handle": "filesystem"
