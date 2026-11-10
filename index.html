@@ -1653,7 +1653,7 @@ function AdminLegacyMigration(){
    for(const line of lines){if(!line.startsWith('INSERT INTO'))continue;const m=line.match(re);if(!m)throw Error('Formato SQL não reconhecido. Use o arquivo zap_migracao_dados.sql gerado para este sistema.');rows.push({source_table:m[1].replace(/''/g,"'"),source_id:Number(m[2]),payload:JSON.parse(m[3].replace(/''/g,"'"))});}
    if(!rows.length)throw Error('Nenhum registro de importação encontrado.');
    setTotal(rows.length);
-   for(let i=0;i<rows.length;i+=100){const r=await fetch('/api/index.js?admin=import-legacy',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:rows.slice(i,i+100)})});await zapReadApiJson(r);setProgress(Math.min(i+100,rows.length));}
+   for(let i=0;i<rows.length;i+=100){const r=await fetch('/api/admin/overview?migration=1',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:rows.slice(i,i+100)})});await zapReadApiJson(r);setProgress(Math.min(i+100,rows.length));}
    setMessage('Importação de staging concluída. '+rows.length+' registros preservados na área privada. Ainda não foram convertidos em clientes, pedidos ou financeiro operacional.');
   }catch(e){setMessage('Importação interrompida: '+e.message+'. Lotes já importados podem ser reenviados sem duplicação.')}finally{setBusy(false)}
  };
