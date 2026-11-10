@@ -1348,7 +1348,7 @@ return `<div class="job-pin job-${item.type} job-vehicle-${item.vehicle}">
 </div></div></div>`;
 }
 // Etiquetas do mapa do profissional: layout compacto/completo do V1 (markers.ts).
-function v1DriverMarkerIcon(item,hideLabels=false){
+function createSharedOrderMarkerIcon(item,hideLabels=false){
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;'}[c]));
  const kind=['coleta','entrega','troca'].includes(item.type)?item.type:'coleta';
  const colors={coleta:['#0284c7','#075985'],entrega:['#ea580c','#9a3412'],troca:['#059669','#065f46']}[kind];
@@ -1483,7 +1483,7 @@ useEffect(()=>{
  const lat=Number(incomingCall.lat),lng=Number(incomingCall.lng);
  if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
  // Usa o mesmo marcador completo dos pedidos aceitos, com dados da chamada.
- const icon=L.divIcon({className:'job-div-icon zap-incoming-location-icon',html:markerHtml(incomingCall,gpsPointRef.current),iconSize:[399,154],iconAnchor:[29,154]});
+ const icon=createSharedOrderMarkerIcon(incomingCall,!showMarkerLabels);
  const marker=L.marker([lat,lng],{icon,zIndexOffset:2000,title:'Chamada: '+incomingCall.place}).addTo(map);
  incomingMarkerRef.current=marker;
  const driver=gpsPointRef.current;
@@ -1562,7 +1562,7 @@ baseTiles.addTo(map);
 let tileFailures=0;
 baseTiles.on('tileerror',()=>{tileFailures++;if(tileFailures===4){const warning=document.createElement('div');warning.className='zap-map-warning';warning.textContent='O serviço de mapas não está disponível nesta conexão. Configure um provedor de mapas autorizado para uso em produção.';map.getContainer().appendChild(warning)}});
 const jobsLayer=L.layerGroup().addTo(map);
-const jobs=visibleDriverRequests.map(item=>{const icon=v1DriverMarkerIcon(item,!showMarkerLabels);return {...item,marker:L.marker([item.lat,item.lng],{icon,title:item.place+' - '+item.type})}});
+const jobs=visibleDriverRequests.map(item=>{const icon=createSharedOrderMarkerIcon(item,!showMarkerLabels);return {...item,marker:L.marker([item.lat,item.lng],{icon,title:item.place+' - '+item.type})}});
 jobs.forEach(job=>{job.marker.off('click');job.marker.on('click',()=>{setSelectedJob(job);showRouteToJob(job)});job.marker.unbindPopup()});jobsRef.current=jobs;
 function renderJobClusters(){
 jobsLayer.clearLayers();
@@ -1634,8 +1634,8 @@ renderJobClusters();const resizeTimer=setTimeout(()=>map.invalidateSize(),150);r
  const accuracy=Math.max(0,Number(position.coords.accuracy)||0);
  if(!gpsAccuracyRef.current)gpsAccuracyRef.current=L.circle(point,{radius:accuracy,color:'#1878e9',weight:1,opacity:.35,fillColor:'#1878e9',fillOpacity:.09,interactive:false}).addTo(map);
  else gpsAccuracyRef.current.setLatLng(point).setRadius(accuracy);
- jobsRef.current.forEach(job=>job.marker.setIcon(L.divIcon({className:'job-div-icon',html:markerHtml(job,point),iconSize:[399,154],iconAnchor:[29,154]})));
- if(incomingCall&&incomingMarkerRef.current)incomingMarkerRef.current.setIcon(L.divIcon({className:'job-div-icon zap-incoming-location-icon',html:markerHtml(incomingCall,point),iconSize:[399,154],iconAnchor:[29,154]}));
+ jobsRef.current.forEach(job=>job.marker.setIcon(createSharedOrderMarkerIcon(job,!showMarkerLabels)));
+ if(incomingCall&&incomingMarkerRef.current)incomingMarkerRef.current.setIcon(createSharedOrderMarkerIcon(incomingCall,!showMarkerLabels));
  if(refreshRef.current)refreshRef.current();
  if(gpsFirstFixRef.current){gpsFirstFixRef.current=false;map.invalidateSize();if(routeTargetRef.current&&!routeLayerRef.current){showRouteToJob(routeTargetRef.current)}else if(!routeTargetRef.current){map.flyTo(point,17,{duration:.8});setToast('Mapa centralizado na localização do motorista')}}
  }
@@ -2141,7 +2141,7 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   const multiple=group.length>1;
   const allCompleted=group.every(item=>item.status==='concluido');
   const completed=allCompleted;
-  const icon=completed?L.divIcon({className:'zap-completed-icon',html:'<div class="zap-completed-x" aria-label="Ver informações das coletas">×'+(group.length>1?'<span class="zap-completed-count">'+group.length+'</span>':'')+'</div>',iconSize:[30,30],iconAnchor:[15,15]}):multiple?L.divIcon({className:'carrier-multi-order-icon',html:'<div class="carrier-multi-order-pin" aria-label="'+group.length+' pedidos neste local">'+group.length+'</div>',iconSize:[48,48],iconAnchor:[24,24]}):v1DriverMarkerIcon({...clean,client:order.client||order.client_name||order.clientName||order.carrier},!showMarkerLabels);
+  const icon=completed?L.divIcon({className:'zap-completed-icon',html:'<div class="zap-completed-x" aria-label="Ver informações das coletas">×'+(group.length>1?'<span class="zap-completed-count">'+group.length+'</span>':'')+'</div>',iconSize:[30,30],iconAnchor:[15,15]}):multiple?L.divIcon({className:'carrier-multi-order-icon',html:'<div class="carrier-multi-order-pin" aria-label="'+group.length+' pedidos neste local">'+group.length+'</div>',iconSize:[48,48],iconAnchor:[24,24]}):createSharedOrderMarkerIcon({...clean,client:order.client||order.client_name||order.clientName||order.carrier},!showMarkerLabels);
   const marker=L.marker([lat,lng],{icon,title:completed?(group.length+' serviços concluídos'):multiple?group.length+' pedidos neste local':String(order.place||'Pedido')});
   marker.on('click',()=>{if(multiple){setSamePlaceOrders(group);setViewOrder(null)}else{setViewOrder(order);setSamePlaceOrders(null)}setSelected(null);setMessage('')});
   marker.addTo(layer);
