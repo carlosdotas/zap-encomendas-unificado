@@ -9,7 +9,7 @@ function userView(u){return {id:u.id,name:u.full_name,phone:u.phone,role:u.role,
 async function session(req){const token=parseCookie(req);if(!token)return null;const hash=crypto.createHash('sha256').update(token).digest('hex');const q=await db().query('select u.id,u.full_name,u.phone,u.role,u.vehicles from zap_app.zap_login_sessions s join zap_app.app_users u on u.id=s.user_id where s.token_hash=$1 and s.expires_at>now() limit 1',[hash]);return q.rows[0]||null;}
 function cookie(res,token,age){res.setHeader('Set-Cookie','zap_session='+token+'; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age='+age);}
 module.exports=async function handler(req,res){
- const path=new URL(req.url||'/', 'https://localhost').pathname;
+ const url=new URL(req.url||'/', 'https://localhost');const path=url.searchParams.has('health')?'/health':url.searchParams.has('auth')?'/api/auth/'+url.searchParams.get('auth'):url.pathname;
  try{
  if(path==='/health'){await db().query('select 1');return json(res,200,{ok:true,database:'postgresql',status:'connected'});}
  if(!path.startsWith('/api/auth/'))return json(res,404,{error:'Rota não encontrada'});
