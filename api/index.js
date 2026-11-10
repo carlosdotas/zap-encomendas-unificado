@@ -86,7 +86,7 @@ module.exports=async function handler(req,res){
   }
   return json(res,405,{error:'Método não permitido'});
  }
- if(path==='/api/admin/import-legacy'){
+ if(path==='/api/admin/import-legacy'||(path==='/api/admin/overview'&&url.searchParams.get('migration')==='1')){
   const u=await session(req);if(!u)return json(res,401,{error:'Faça login'});
   if(u.role!=='administrador')return json(res,403,{error:'Acesso restrito'});
   if(req.method!=='POST')return json(res,405,{error:'Método não permitido'});
