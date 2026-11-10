@@ -2,10 +2,6 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/auth/:path*",
-      "destination": "/api/index?auth=:path*"
-    },
-    {
       "source": "/health",
       "destination": "/api/index?health=1"
     }
