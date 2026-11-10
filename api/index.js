@@ -86,6 +86,23 @@ module.exports=async function handler(req,res){
   }
   return json(res,405,{error:'Método não permitido'});
  }
+ if(path==='/api/admin/import-legacy'){
+  const u=await session(req);if(!u)return json(res,401,{error:'Faça login'});
+  if(u.role!=='administrador')return json(res,403,{error:'Acesso restrito'});
+  if(req.method!=='POST')return json(res,405,{error:'Método não permitido'});
+  const origin=req.headers.origin,host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();
+  if(origin&&new URL(origin).host!==host)return json(res,403,{error:'Origem não autorizada'});
+  const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
+  const rows=b.rows,allowed=new Set(['caixa_lancamentos','company','drivers','driver_tracking','locais','locations','merchandises','order_logs','orders','users','bills','clients','customers']);
+  if(!Array.isArray(rows)||rows.length<1||rows.length>100)return json(res,400,{error:'Envie de 1 a 100 registros por lote'});
+  for(const r of rows)if(!r||!allowed.has(r.source_table)||!Number.isSafeInteger(r.source_id)||r.source_id<0||!r.payload||typeof r.payload!=='object'||Array.isArray(r.payload)||JSON.stringify(r.payload).length>30000)return json(res,400,{error:'Registro de importação inválido'});
+  const client=await db().connect();
+  try{
+   await client.query('BEGIN');
+   for(const r of rows)await client.query('insert into legacy_hostinger.raw_records(source_table,source_id,payload) values($1,$2,$3::jsonb) on conflict(source_table,source_id) do update set payload=excluded.payload',[r.source_table,r.source_id,JSON.stringify(r.payload)]);
+   await client.query('COMMIT');return json(res,200,{ok:true,imported:rows.length,mode:'staging'});
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+ }
  if(path==='/api/financeiro'){
   const u=await session(req);
   if(!u)return json(res,401,{error:'Autenticação necessária'});
