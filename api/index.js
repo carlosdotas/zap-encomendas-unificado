@@ -204,7 +204,29 @@ module.exports=async function handler(req,res){
   const isClients=path==='/api/clients';const table=isClients?'zap_app.zap_quick_clients':'zap_app.zap_order_entries';
   if(req.method==='GET'){
    const q=await db().query(isClients?'select * from zap_app.zap_quick_clients where transportadora_id=$1 order by name asc limit 1000':'select * from zap_app.zap_order_entries where transportadora_id=$1 and legacy_order_id is null order by id desc limit 200',[u.transportadora_id]);
-   return json(res,200,isClients?{ok:true,items:q.rows,clients:q.rows.map(c=>({...c,contactName:c.contact_name,document:c.document_number,lat:c.latitude,lng:c.longitude}))}:{ok:true,items:q.rows,orders:q.rows.map(o=>({...o,client:o.client_name,clientPhone:o.client_phone,vehicle:o.vehicle_type,service:o.service_type,lat:o.latitude,lng:o.longitude,instructions:o.instructions,carrier:'Zap Encomendas'}))});
+   if(!isClients){
+    // Apenas para o mapa: etapas operacionais do V1, preservando os registros e status originais.
+    const historical=await db().query(`select o.id,o.legacy_order_id,o.legacy_stage,o.service_type,o.vehicle_type,o.client_name,
+      a.origin_name,a.origin_address,a.origin_lat,a.origin_lng,
+      a.destination_name,a.destination_address,a.destination_lat,a.destination_lng
+      from zap_app.zap_order_entries o
+      join zap_app.zap_legacy_orders_archive a on a.legacy_order_id=o.legacy_order_id
+      where o.transportadora_id=$1 and lower(coalesce(o.legacy_stage,a.stage,'')) in ('aprovado','coletado','trocado','troca')
+      order by o.id desc limit 500`,[u.transportadora_id]);
+    const mapOrders=historical.rows.map(o=>{
+      const stage=String(o.legacy_stage||'').toLowerCase();
+      const delivery=['coletado','trocado','troca'].includes(stage);
+      const lat=delivery?o.destination_lat:o.origin_lat;
+      const lng=delivery?o.destination_lng:o.origin_lng;
+      return {id:'legacy-'+o.legacy_order_id,legacyOrderId:o.legacy_order_id,status:stage,
+        stage,place:(delivery?o.destination_name:o.origin_name)||'Local do pedido',
+        address:(delivery?o.destination_address:o.origin_address)||'',
+        lat,lng,client:o.client_name,vehicle:o.vehicle_type,
+        type:delivery?'entrega':'coleta',service:o.service_type,carrier:'Zap Encomendas'};
+    }).filter(o=>o.lat!=null&&o.lng!=null);
+    return json(res,200,{ok:true,items:q.rows,orders:q.rows.map(o=>({...o,client:o.client_name,clientPhone:o.client_phone,vehicle:o.vehicle_type,service:o.service_type,lat:o.latitude,lng:o.longitude,instructions:o.instructions,carrier:'Zap Encomendas'})),mapOrders});
+   }
+   return json(res,200,{ok:true,items:q.rows,clients:q.rows.map(c=>({...c,contactName:c.contact_name,document:c.document_number,lat:c.latitude,lng:c.longitude}))});
   }
   if(req.method==='POST'&&isClients){
    const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
