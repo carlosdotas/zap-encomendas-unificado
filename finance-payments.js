@@ -5,7 +5,7 @@ function money(v){if(typeof v!=='string'&&typeof v!=='number')return null;const 
 function format(n){return (Number(n)/100).toFixed(2);}
 function originOK(req){if(!req.headers.origin)return true;try{return new URL(req.headers.origin).host===String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim()}catch{return false}}
 function parse(req){return new Promise((resolve,reject)=>{let s='',done=false;req.on('data',b=>{if(done)return;s+=b;if(s.length>10000){done=true;reject(Error('Requisição muito grande'));req.resume()}});req.on('end',()=>{if(done)return;try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('JSON inválido'))}});req.on('error',reject)})}
-function createFinancialRoutes({pool,getSession,sendJson,ensureDatabase,databaseReady}){
+function createFinancialRoutes({getPool,getSession,sendJson,ensureDatabase,databaseReady}){
  return async function financeRoutes(req,res,path){
   const match=path.match(/^\/api\/finance\/orders\/(\d+)\/(?:payment|payments)$/);
   if(!match)return false;
@@ -16,7 +16,7 @@ function createFinancialRoutes({pool,getSession,sendJson,ensureDatabase,database
   if(!user){sendJson(res,401,{error:'Autenticação necessária'});return true}
   if(!['transportadora','administrador'].includes(user.role)){sendJson(res,403,{error:'Acesso financeiro não autorizado'});return true}
   if(req.method==='POST'&&!originOK(req)){sendJson(res,403,{error:'Origem não autorizada'});return true}
-  const id=match[1],conn=await pool.getConnection();
+  const id=match[1],conn=await getPool().getConnection();
   try{
    if(req.method==='GET'){
     const [orders]=await conn.execute('SELECT id,owner_user_id,value_items FROM zap_order_entries WHERE id=?',[id]);
