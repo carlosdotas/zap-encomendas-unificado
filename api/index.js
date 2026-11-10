@@ -23,13 +23,30 @@ function db(){
 }
 function json(res,status,obj){res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(obj));}
 function parseCookie(req){return String(req.headers.cookie||'').match(/(?:^|;\s*)zap_session=([a-f0-9]{64})(?:;|$)/)?.[1];}
-function userView(u){return {id:u.id,name:u.full_name,phone:u.phone,role:u.role,vehicles:String(u.vehicles||'').split(',').filter(Boolean)};}
-async function session(req){const token=parseCookie(req);if(!token)return null;const hash=crypto.createHash('sha256').update(token).digest('hex');const q=await db().query('select u.id,u.full_name,u.phone,u.role,u.vehicles from zap_app.zap_login_sessions s join zap_app.app_users u on u.id=s.user_id where s.token_hash=$1 and s.expires_at>now() limit 1',[hash]);return q.rows[0]||null;}
+function userView(u){return {id:u.id,name:u.full_name,phone:u.phone,role:u.role,vehicles:String(u.vehicles||'').split(',').filter(Boolean),transportadora_id:u.transportadora_id||null};}
+async function session(req){const token=parseCookie(req);if(!token)return null;const hash=crypto.createHash('sha256').update(token).digest('hex');const q=await db().query('select u.id,u.full_name,u.phone,u.role,u.vehicles,t.id as transportadora_id from zap_app.zap_login_sessions s join zap_app.app_users u on u.id=s.user_id left join zap_app.transportadoras t on t.usuario_principal_id=u.id where s.token_hash=$1 and s.expires_at>now() limit 1',[hash]);return q.rows[0]||null;}
 function cookie(res,token,age){res.setHeader('Set-Cookie','zap_session='+token+'; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age='+age);}
 module.exports=async function handler(req,res){
  const url=new URL(req.url||'/', 'https://localhost');const path=url.searchParams.has('health')?'/health':url.searchParams.has('auth')?'/api/auth/'+url.searchParams.get('auth'):url.pathname;
  try{
  if(path==='/health'){await db().query('select 1');return json(res,200,{ok:true,database:'postgresql',status:'connected'});}
+ if(path==='/api/clients' || path==='/api/orders'){
+  const u=await session(req);if(!u)return json(res,401,{error:'Autenticação necessária'});
+  if(u.role!=='transportadora' || !u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
+  const isClients=path==='/api/clients';const table=isClients?'zap_app.zap_quick_clients':'zap_app.zap_order_entries';
+  if(req.method==='GET'){
+   const q=await db().query('select * from '+table+' where transportadora_id=$1 order by id desc limit 200',[u.transportadora_id]);
+   return json(res,200,{ok:true,items:q.rows});
+  }
+  if(req.method==='POST'&&isClients){
+   const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
+   const name=String(b.name||'').trim(),phone=String(b.phone||'').replace(/\\D/g,'');
+   if(name.length<2||name.length>160||phone.length>20)return json(res,400,{error:'Cliente inválido'});
+   const q=await db().query('insert into zap_app.zap_quick_clients(owner_user_id,transportadora_id,name,contact_name,document_number,phone,address,latitude,longitude) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *',[u.id,u.transportadora_id,name,String(b.contact_name||''),String(b.document_number||''),phone,String(b.address||''),Number.isFinite(Number(b.latitude))&&b.latitude!=null?Number(b.latitude):null,Number.isFinite(Number(b.longitude))&&b.longitude!=null?Number(b.longitude):null]);
+   return json(res,201,{ok:true,item:q.rows[0]});
+  }
+  return json(res,405,{error:'Método não permitido'});
+ }
  if(!path.startsWith('/api/auth/'))return json(res,404,{error:'Rota não encontrada'});
  if(path==='/api/auth/me'&&req.method==='GET'){const u=await session(req);return json(res,u?200:401,u?{ok:true,user:userView(u)}:{ok:false,error:'Sessão não encontrada'});}
  if(req.method!=='POST')return json(res,405,{error:'Método não permitido'});
@@ -41,7 +58,7 @@ module.exports=async function handler(req,res){
  if(!/^\d{10,11}$/.test(phone)||typeof password!=='string'||password.length<6||Buffer.byteLength(password)>256)return json(res,400,{error:'Informe telefone com DDD e senha de pelo menos 6 caracteres.'});
  let u;
  if(path==='/api/auth/login'){
- const q=await db().query('select id,full_name,phone,password_hash,role,vehicles from zap_app.app_users where phone=$1 limit 1',[phone]);u=q.rows[0];
+ const q=await db().query('select u.id,u.full_name,u.phone,u.password_hash,u.role,u.vehicles,t.id as transportadora_id from zap_app.app_users u left join zap_app.transportadoras t on t.usuario_principal_id=u.id where u.phone=$1 limit 1',[phone]);u=q.rows[0];
  const parts=String(u?.password_hash||'').split(':');let valid=false;
  if(parts.length===3&&parts[0]==='scrypt'&&/^[a-f0-9]{32}$/.test(parts[1])&&/^[a-f0-9]{128}$/.test(parts[2])){const hash=crypto.scryptSync(password,parts[1],64);valid=crypto.timingSafeEqual(hash,Buffer.from(parts[2],'hex'));}
  if(!valid)return json(res,401,{error:'Telefone ou senha incorretos.'});
@@ -50,7 +67,7 @@ module.exports=async function handler(req,res){
  const name=String(b.name||'').trim().replace(/\s+/g,' ');const role=b.role==='transportadora'?'transportadora':'motorista';const vehicles=Array.isArray(b.vehicles)?b.vehicles.filter(v=>['moto','carro','utilitario'].includes(v)).slice(0,3):[];const city=String(b.city||'').trim();const cities=['Goiânia','Anápolis','Leopoldo de Bulhões','Silvânia','Vianópolis','Bonfinópolis'];
  if(name.length<3||name.length>160||(role==='motorista'&&(!vehicles.length||!cities.includes(city))))return json(res,400,{error:'Informe nome, cidade e veículo válido.'});
  const salt=crypto.randomBytes(16).toString('hex');const encoded='scrypt:'+salt+':'+crypto.scryptSync(password,salt,64).toString('hex');
- try{const q=await db().query('insert into zap_app.app_users(full_name,phone,password_hash,role,vehicles,city) values($1,$2,$3,$4,$5,$6) returning id,full_name,phone,role,vehicles',[name,phone,encoded,role,vehicles.join(','),role==='motorista'?city:null]);u=q.rows[0];}catch(e){if(e.code==='23505')return json(res,409,{error:'Telefone já cadastrado. Faça login.'});throw e;}
+ try{const q=await db().query('insert into zap_app.app_users(full_name,phone,password_hash,role,vehicles,city) values($1,$2,$3,$4,$5,$6) returning id,full_name,phone,role,vehicles',[name,phone,encoded,role,vehicles.join(','),role==='motorista'?city:null]);u=q.rows[0];if(role==='transportadora'){const t=await db().query('insert into zap_app.transportadoras(nome,usuario_principal_id) values($1,$2) returning id',[name,u.id]);u.transportadora_id=t.rows[0].id;}}catch(e){if(e.code==='23505')return json(res,409,{error:'Telefone já cadastrado. Faça login.'});throw e;}
  }else return json(res,404,{error:'Rota não encontrada'});
  const token=crypto.randomBytes(32).toString('hex');await db().query("insert into zap_app.zap_login_sessions(token_hash,user_id,expires_at) values($1,$2,now()+interval '7 days')",[crypto.createHash('sha256').update(token).digest('hex'),u.id]);cookie(res,token,604800);return json(res,200,{ok:true,user:userView(u)});
  }catch(e){console.error('[PG API]',e.code||'ERROR',e.message);return json(res,503,{error:'Serviço temporariamente indisponível',code:e.code||'DB_UNAVAILABLE'});}
