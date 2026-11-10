@@ -133,9 +133,13 @@ module.exports=async function handler(req,res){
   if(req.method!=='GET')return json(res,405,{error:'Método não permitido'});
   const page=Math.max(0,Math.min(10000,Number.parseInt(url.searchParams.get('page')||'0',10)||0));
   const term=String(url.searchParams.get('q')||'').trim().slice(0,100);
-  const result=await db().query("select id,legacy_order_id,legacy_stage,place,address,service_type,vehicle_type,client_name,client_phone,created_at from zap_app.zap_order_entries where transportadora_id=$1 and legacy_order_id is not null and ($2='' or client_name ilike '%'||$2||'%' or place ilike '%'||$2||'%' or legacy_order_id::text=$2) order by created_at desc,id desc limit 51 offset $3",[u.transportadora_id,term,page*50]);
-  const total=await db().query("select count(*)::int n from zap_app.zap_order_entries where transportadora_id=$1 and legacy_order_id is not null",[u.transportadora_id]);
-  return json(res,200,{ok:true,items:result.rows.slice(0,50),hasMore:result.rows.length>50,total:total.rows[0].n,page});
+  const stage=String(url.searchParams.get('stage')||'todos');
+  const stageFilter=stage==='concluidos'?"and o.legacy_stage in ('finalizado','entregue')":stage==='andamento'?"and o.legacy_stage not in ('finalizado','entregue')":'';
+  const where="o.transportadora_id=$1 and o.legacy_order_id is not null and ($2='' or o.client_name ilike '%'||$2||'%' or o.place ilike '%'||$2||'%' or o.legacy_order_id::text=$2 or coalesce(l.payload->>'client_name','') ilike '%'||$2||'%') "+stageFilter;
+  const base=" from zap_app.zap_order_entries o left join legacy_hostinger.raw_records l on l.source_table='orders' and l.source_id=o.legacy_order_id where "+where;
+  const result=await db().query("select o.id,o.legacy_order_id,o.legacy_stage,o.place,o.address,o.service_type,o.vehicle_type,o.client_name,o.client_phone,o.created_at,l.payload->>'order_type' original_type,l.payload->>'date' order_date,l.payload->>'total' total_value,l.payload->>'payment_status' payment_status,l.payload->>'orig_city' origin_city,l.payload->>'dest_city' destination_city,l.payload->>'orig_name' origin_name,l.payload->>'dest_name' destination_name,l.payload->>'notes' original_notes"+base+" order by o.created_at desc,o.id desc limit 31 offset $3",[u.transportadora_id,term,page*30]);
+  const total=await db().query("select count(*)::int n"+base,[u.transportadora_id,term]);
+  return json(res,200,{ok:true,items:result.rows.slice(0,30),hasMore:result.rows.length>30,total:total.rows[0].n,page});
  }
  if(path==='/api/clients' || path==='/api/orders'){
   const u=await session(req);if(!u)return json(res,401,{error:'Autenticação necessária'});
