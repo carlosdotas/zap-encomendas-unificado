@@ -1162,6 +1162,34 @@ body > .carrier-order-detail-backdrop .carrier-order-detail{position:relative;ma
 .carrier-order-config .zap-order-client-card-content .zap-client-delivery-address span{line-height:1.4;font-size:12px}
 .carrier-order-config .zap-order-client-card-content .zap-client-delivery-set{align-self:flex-start;margin-left:30px}
 @media(max-width:390px){.carrier-order-config .zap-order-client-card-status{font-size:0}.carrier-order-config .zap-order-client-card-status svg{width:16px;height:16px}}
+</style><style>
+/* Campos do formulário de pedidos: fundo azul-acinzentado discreto, com foco visível. */
+.carrier-map-page.carrier-config-open .carrier-order-config input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.carrier-map-page.carrier-config-open .carrier-order-config textarea,
+.carrier-map-page.carrier-config-open .carrier-order-config select{
+ background-color:#f2f6fa!important;
+ border-color:#cbd8e5!important;
+ color:#193b59!important;
+}
+.carrier-map-page.carrier-config-open .carrier-order-config input:not([type="checkbox"]):not([type="radio"]):focus,
+.carrier-map-page.carrier-config-open .carrier-order-config textarea:focus,
+.carrier-map-page.carrier-config-open .carrier-order-config select:focus{
+ background-color:#eaf3fb!important;
+ border-color:#6b9ec9!important;
+ box-shadow:0 0 0 2px #6b9ec929!important;
+ outline:none;
+}
+.carrier-map-page.carrier-config-open .carrier-order-config input::placeholder,
+.carrier-map-page.carrier-config-open .carrier-order-config textarea::placeholder{color:#8193a5!important}
+.carrier-map-page.carrier-config-open .carrier-order-config .carrier-place-search-input,
+.carrier-map-page.carrier-config-open .carrier-order-config .zap-client-input-wrap{
+ background:#f2f6fa!important;border-color:#cbd8e5!important;
+}
+.carrier-map-page.carrier-config-open .carrier-order-config .carrier-place-search-input:focus-within,
+.carrier-map-page.carrier-config-open .carrier-order-config .zap-client-input-wrap:focus-within{
+ background:#eaf3fb!important;border-color:#6b9ec9!important;
+ box-shadow:0 0 0 2px #6b9ec929!important;
+}
 </style></head>
 <body><div id="root"></div>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
