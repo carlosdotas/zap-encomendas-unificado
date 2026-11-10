@@ -32,31 +32,11 @@
   ],
   "routes": [
     {
-      "src": "^/api/admin/audit-orders$",
-      "dest": "/api/index.js?admin=audit-orders"
-    },
-    {
-      "src": "^/api/admin/import-legacy$",
-      "dest": "/api/index.js?admin=import-legacy"
-    },
-    {
-      "src": "^/api/admin/(overview|drivers|carriers|administrators|orders)$",
-      "dest": "/api/index.js?admin=$1"
-    },
-    {
-      "src": "^/api/auth/([^/]+)$",
-      "dest": "/api/auth/[action].js?action=$1"
-    },
-    {
-      "src": "^/api/admin/(transportadoras|reset-password)$",
-      "dest": "/api/index.js?admin=$1"
-    },
-    {
-      "src": "^/api/(clients|orders|financeiro|carrier/history|carrier/actionable-orders|carrier/pending-orders)$",
+      "src": "^/api/(.*)$",
       "dest": "/api/index.js?resource=$1"
     },
     {
-      "src": "^/health$",
+      "src": "^/health/?$",
       "dest": "/api/index.js?health=1"
     },
     {
