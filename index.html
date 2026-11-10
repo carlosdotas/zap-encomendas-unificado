@@ -1654,7 +1654,7 @@ function AdminLegacyMigration(){
    const excluded=rows.filter(r=>r.source_table==='user_sessions').length;for(let i=rows.length-1;i>=0;i--)if(rows[i].source_table==='user_sessions')rows.splice(i,1);
    if(!rows.length)throw Error('Nenhum registro de importação encontrado.');
    setTotal(rows.length);
-   for(let i=0;i<rows.length;i+=100){const r=await fetch('/api/admin/overview?migration=1',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:rows.slice(i,i+100)})});await zapReadApiJson(r);setProgress(Math.min(i+100,rows.length));}
+   for(let i=0;i<rows.length;){let end=Math.min(i+300,rows.length),body=JSON.stringify({rows:rows.slice(i,end)});while(body.length>900000&&end>i+1){end=i+Math.max(1,Math.floor((end-i)/2));body=JSON.stringify({rows:rows.slice(i,end)});}const r=await fetch('/api/admin/overview?migration=1',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body});await zapReadApiJson(r);i=end;setProgress(i);}
    setMessage('Importação de staging concluída. '+rows.length+' registros preservados na área privada. '+excluded+' sessões antigas ignoradas por segurança. Ainda não foram convertidos em clientes, pedidos ou financeiro operacional.');
   }catch(e){setMessage('Importação interrompida: '+e.message+'. Lotes já importados podem ser reenviados sem duplicação.')}finally{setBusy(false)}
  };
