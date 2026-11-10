@@ -37,7 +37,7 @@
     },
     {
       "src": "^/api/(clients|orders)$",
-      "dest": "/api/index.js"
+      "dest": "/api/index.js?resource=$1"
     },
     {
       "src": "^/health$",
