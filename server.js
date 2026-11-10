@@ -908,6 +908,6 @@ server.listen(PORT, HOST, () => {
   if (!process.env.DATABASE_URL) ensureDatabase(true).then(recoverPendingCalls).catch(err => console.error('[BOOT]',err.message));
   const timer=setInterval(()=>{if(!process.env.DATABASE_URL && (!databaseStatus.ok || migrationStatus!=='atualizado')) ensureDatabase().catch(err=>console.error('[RETRY]',err.message));},30000);
   timer.unref();
-  const recovery=setInterval(()=>(!process.env.DATABASE_URL && recoverPendingCalls().catch(err=>console.error('[CALL SYNC]',err.message)),30000);recovery.unref();
+  const recovery=setInterval(()=>(!process.env.DATABASE_URL && recoverPendingCalls().catch(err=>console.error('[CALL SYNC]',err.message))),30000);recovery.unref();
 });
 process.on('SIGTERM', async () => { server.close(); if(pool) await pool.end(); });
