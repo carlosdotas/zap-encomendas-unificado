@@ -11,7 +11,10 @@
     "test:mobile": "node --test test/*.test.js",
     "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
     "android:icons": "node scripts/generate-icons.js",
-    "android:test:prepare": "node scripts/prepare-ime-tests.js"
+    "android:test:prepare": "node scripts/prepare-ime-tests.js",
+    "build": "node -e \"console.log('Aplicacao web estatica: nenhuma compilacao necessaria')\"",
+    "start:dev": "node server.js",
+    "install:server": "npm install --omit=dev --ignore-scripts --no-audit --no-fund"
   },
   "engines": {
     "node": "22.x"
