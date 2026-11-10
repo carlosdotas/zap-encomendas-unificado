@@ -2125,11 +2125,11 @@ function CarrierDashboard({onBack,onSwitchDriver,sharedLocation,onLocationConsum
   const multiple=group.length>1;
   const allCompleted=group.every(item=>item.status==='concluido');
   const completed=allCompleted;
-  const icon=completed?L.divIcon({className:'zap-completed-icon',html:'<div class="zap-completed-x" aria-label="Ver informações das coletas">×'+(group.length>1?'<span class="zap-completed-count">'+group.length+'</span>':'')+'</div>',iconSize:[30,30],iconAnchor:[15,15]}):multiple?L.divIcon({className:'carrier-multi-order-icon',html:'<div class="carrier-multi-order-pin" aria-label="'+group.length+' pedidos neste local">'+group.length+'</div>',iconSize:[48,48],iconAnchor:[24,24]}):L.divIcon({className:'job-div-icon',html:markerHtml(clean,null).replace('<div class="job-symbol"><svg','<div class="job-symbol">'+(order.driverId&&order.status==='aceito'?'<span class="carrier-linked-marker-badge" title="Com motorista" aria-label="Com motorista">✓</span>':'')+'<svg'),iconSize:[399,154],iconAnchor:[29,154]});
+  const icon=completed?L.divIcon({className:'zap-completed-icon',html:'<div class="zap-completed-x" aria-label="Ver informações das coletas">×'+(group.length>1?'<span class="zap-completed-count">'+group.length+'</span>':'')+'</div>',iconSize:[30,30],iconAnchor:[15,15]}):multiple?L.divIcon({className:'carrier-multi-order-icon',html:'<div class="carrier-multi-order-pin" aria-label="'+group.length+' pedidos neste local">'+group.length+'</div>',iconSize:[48,48],iconAnchor:[24,24]}):v1DriverMarkerIcon({...clean,client:order.client||order.client_name||order.clientName||order.carrier},!showMarkerLabels);
   const marker=L.marker([lat,lng],{icon,title:completed?(group.length+' serviços concluídos'):multiple?group.length+' pedidos neste local':String(order.place||'Pedido')});
   marker.on('click',()=>{if(multiple){setSamePlaceOrders(group);setViewOrder(null)}else{setViewOrder(order);setSamePlaceOrders(null)}setSelected(null);setMessage('')});
   marker.addTo(layer);
- });},[orders,historicalMapOrders]);
+ });},[orders,historicalMapOrders,showMarkerLabels]);
  // Resultados de busca ficam visíveis no mapa, com pinos numerados e clicáveis.
  useEffect(()=>{
   const map=mapRef.current,layer=searchLayerRef.current;
