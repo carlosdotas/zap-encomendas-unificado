@@ -61,7 +61,7 @@
     },
     {
       "src": "^/administracao/?$",
-      "dest": "/administracao.html"
+      "dest": "/index.html"
     },
     {
       "handle": "filesystem"
