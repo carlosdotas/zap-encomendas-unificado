@@ -110,9 +110,10 @@ module.exports=async function handler(req,res){
   if(!u)return json(res,401,{error:'Autenticação necessária'});
   if(u.role!=='transportadora'||!u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
   if(req.method==='GET'){
-   const r=await db().query("select id,tipo,descricao,categoria,valor,vencimento,pago_em,status,origem_sistema,created_at from zap_app.financeiro_lancamentos where transportadora_id=$1 order by id desc limit 500",[u.transportadora_id]);
+   const page=Math.max(0,Math.min(10000,Number.parseInt(url.searchParams.get('page')||'0',10)||0)),limit=Math.max(1,Math.min(100,Number.parseInt(url.searchParams.get('limit')||'100',10)||100));
+   const r=await db().query("select id,tipo,descricao,categoria,valor,vencimento,pago_em,status,origem_sistema,created_at from zap_app.financeiro_lancamentos where transportadora_id=$1 order by id desc limit $2 offset $3",[u.transportadora_id,limit+1,page*limit]);
    const totals=await db().query("select tipo,status,coalesce(sum(valor),0) as total from zap_app.financeiro_lancamentos where transportadora_id=$1 group by tipo,status",[u.transportadora_id]);
-   return json(res,200,{ok:true,items:r.rows,totals:totals.rows});
+   return json(res,200,{ok:true,items:r.rows.slice(0,limit),hasMore:r.rows.length>limit,page,totals:totals.rows});
   }
   if(req.method==='POST'){
    const origin=req.headers.origin,host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();
