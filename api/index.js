@@ -127,13 +127,23 @@ module.exports=async function handler(req,res){
   }
   return json(res,405,{error:'Método não permitido'});
  }
+ if(path==='/api/carrier/history'){
+  const u=await session(req);if(!u)return json(res,401,{error:'Autenticação necessária'});
+  if(u.role!=='transportadora'||!u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
+  if(req.method!=='GET')return json(res,405,{error:'Método não permitido'});
+  const page=Math.max(0,Math.min(10000,Number.parseInt(url.searchParams.get('page')||'0',10)||0));
+  const term=String(url.searchParams.get('q')||'').trim().slice(0,100);
+  const result=await db().query("select id,legacy_order_id,legacy_stage,place,address,service_type,vehicle_type,client_name,client_phone,created_at from zap_app.zap_order_entries where transportadora_id=$1 and legacy_order_id is not null and ($2='' or client_name ilike '%'||$2||'%' or place ilike '%'||$2||'%' or legacy_order_id::text=$2) order by created_at desc,id desc limit 51 offset $3",[u.transportadora_id,term,page*50]);
+  const total=await db().query("select count(*)::int n from zap_app.zap_order_entries where transportadora_id=$1 and legacy_order_id is not null",[u.transportadora_id]);
+  return json(res,200,{ok:true,items:result.rows.slice(0,50),hasMore:result.rows.length>50,total:total.rows[0].n,page});
+ }
  if(path==='/api/clients' || path==='/api/orders'){
   const u=await session(req);if(!u)return json(res,401,{error:'Autenticação necessária'});
   if(u.role!=='transportadora' || !u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
   const isClients=path==='/api/clients';const table=isClients?'zap_app.zap_quick_clients':'zap_app.zap_order_entries';
   if(req.method==='GET'){
-   const q=await db().query('select * from '+table+' where transportadora_id=$1 order by id desc limit 200',[u.transportadora_id]);
-   return json(res,200,{ok:true,items:q.rows});
+   const q=await db().query(isClients?'select * from zap_app.zap_quick_clients where transportadora_id=$1 order by name asc limit 1000':'select * from zap_app.zap_order_entries where transportadora_id=$1 and legacy_order_id is null order by id desc limit 200',[u.transportadora_id]);
+   return json(res,200,isClients?{ok:true,items:q.rows,clients:q.rows.map(c=>({...c,contactName:c.contact_name,document:c.document_number,lat:c.latitude,lng:c.longitude}))}:{ok:true,items:q.rows,orders:q.rows.map(o=>({...o,client:o.client_name,clientPhone:o.client_phone,vehicle:o.vehicle_type,service:o.service_type,lat:o.latitude,lng:o.longitude,instructions:o.instructions,carrier:'Zap Encomendas'}))});
   }
   if(req.method==='POST'&&isClients){
    const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
