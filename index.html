@@ -1450,7 +1450,7 @@ const [driverOrdersQuery,setDriverOrdersQuery]=useState('');
 const [driverCalendarOpen,setDriverCalendarOpen]=useState(false);
 const driverToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const [driverDateRange,setDriverDateRange]=useState(()=>({start:driverToday(),end:driverToday(),preset:'hoje'}));
-function driverDateKey(value){if(!value)return '';const str=String(value);if(/^\\d{4}-\\d{2}-\\d{2}$/.test(str))return str;const d=new Date(str);return Number.isNaN(d.getTime())?'':new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
+function driverDateKey(value){if(!value)return '';const str=String(value);if(/^\d{4}-\d{2}-\d{2}$/.test(str))return str;const d=new Date(str);return Number.isNaN(d.getTime())?'':new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
 function driverJobDate(job){return driverDateKey(job.pickup_date||job.pickupDate||job.order_date||job.orderDate||job.scheduled_date||job.scheduledDate||job.date||job.createdAt||job.created_at||job.created)}
 function driverRangePreset(preset){
  const base=new Date(driverToday()+'T12:00:00-03:00');
