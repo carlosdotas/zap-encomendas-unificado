@@ -207,11 +207,18 @@ module.exports=async function handler(req,res){
    if(!isClients){
     // Apenas para o mapa: etapas operacionais do V1, preservando os registros e status originais.
     const historical=await db().query(`select o.id,o.legacy_order_id,o.legacy_stage,o.service_type,o.vehicle_type,o.client_name,
-      a.origin_name,a.origin_address,a.origin_lat,a.origin_lng,
-      a.destination_name,a.destination_address,a.destination_lat,a.destination_lng
+      coalesce(lc.name,r.payload->>'coleta_local',lo.name,o.place) origin_name,
+      coalesce(lc.address,lo.address,o.address) origin_address,
+      coalesce(lc.latitude,lo.latitude,o.latitude) origin_lat,
+      coalesce(lc.longitude,lo.longitude,o.longitude) origin_lng,
+      coalesce(le.name,r.payload->>'entrega_local') destination_name,
+      le.address destination_address,le.latitude destination_lat,le.longitude destination_lng
       from zap_app.zap_order_entries o
-      join zap_app.zap_legacy_orders_archive a on a.legacy_order_id=o.legacy_order_id
-      where o.transportadora_id=$1 and lower(coalesce(o.legacy_stage,a.stage,'')) in ('aprovado','coletado','trocado','troca')
+      join legacy_hostinger.raw_records r on r.source_table='orders' and r.source_id=o.legacy_order_id
+      left join zap_app.zap_locations lc on lc.legacy_location_id=case when (r.payload->>'coleta_locais_id') ~ '^[0-9]+$' then (r.payload->>'coleta_locais_id')::bigint end
+      left join zap_app.zap_locations le on le.legacy_location_id=case when (r.payload->>'entrega_locais_id') ~ '^[0-9]+$' then (r.payload->>'entrega_locais_id')::bigint end
+      left join zap_app.zap_locations lo on lo.legacy_location_id=case when (r.payload->>'locais_id') ~ '^[0-9]+$' then (r.payload->>'locais_id')::bigint end
+      where o.transportadora_id=$1 and lower(coalesce(o.legacy_stage,'')) in ('aprovado','coletado','trocado','troca')
       order by o.id desc limit 500`,[u.transportadora_id]);
     const mapOrders=historical.rows.map(o=>{
       const stage=String(o.legacy_stage||'').toLowerCase();
