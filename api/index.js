@@ -6,7 +6,7 @@ function db(){
  if(!process.env.DATABASE_URL)throw Error('DATABASE_URL ausente');
  if(!pool){
   const raw=new URL(process.env.DATABASE_URL);
-  const direct=/^db\\.([a-z0-9]+)\\.supabase\\.co$/.exec(raw.hostname);
+  const direct=new RegExp('^db[.]([a-z0-9]+)[.]supabase[.]co$').exec(raw.hostname);
   if(direct){
    const project=direct[1];
    const region=process.env.SUPABASE_DB_REGION||'sa-east-1';
