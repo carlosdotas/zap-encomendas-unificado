@@ -27,7 +27,7 @@ function userView(u){return {id:u.id,name:u.full_name,phone:u.phone,role:u.role,
 async function session(req){const token=parseCookie(req);if(!token)return null;const hash=crypto.createHash('sha256').update(token).digest('hex');const q=await db().query('select u.id,u.full_name,u.phone,u.role,u.vehicles,t.id as transportadora_id from zap_app.zap_login_sessions s join zap_app.app_users u on u.id=s.user_id left join zap_app.transportadoras t on t.usuario_principal_id=u.id where s.token_hash=$1 and s.expires_at>now() limit 1',[hash]);return q.rows[0]||null;}
 function cookie(res,token,age){res.setHeader('Set-Cookie','zap_session='+token+'; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age='+age);}
 module.exports=async function handler(req,res){
- const url=new URL(req.url||'/', 'https://localhost');const path=url.searchParams.has('health')?'/health':url.searchParams.has('auth')?'/api/auth/'+url.searchParams.get('auth'):url.pathname;
+ const url=new URL(req.url||'/', 'https://localhost');const path=url.searchParams.has('health')?'/health':url.searchParams.has('auth')?'/api/auth/'+url.searchParams.get('auth'):url.searchParams.has('resource')?'/api/'+url.searchParams.get('resource'):url.pathname;
  try{
  if(path==='/health'){await db().query('select 1');return json(res,200,{ok:true,database:'postgresql',status:'connected'});}
  if(path==='/api/clients' || path==='/api/orders'){
@@ -40,7 +40,7 @@ module.exports=async function handler(req,res){
   }
   if(req.method==='POST'&&isClients){
    const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
-   const name=String(b.name||'').trim(),phone=String(b.phone||'').replace(/\\D/g,'');
+   const name=String(b.name||'').trim(),phone=String(b.phone||'').replace(/\D/g,'');
    if(name.length<2||name.length>160||phone.length>20)return json(res,400,{error:'Cliente inválido'});
    const q=await db().query('insert into zap_app.zap_quick_clients(owner_user_id,transportadora_id,name,contact_name,document_number,phone,address,latitude,longitude) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *',[u.id,u.transportadora_id,name,String(b.contact_name||''),String(b.document_number||''),phone,String(b.address||''),Number.isFinite(Number(b.latitude))&&b.latitude!=null?Number(b.latitude):null,Number.isFinite(Number(b.longitude))&&b.longitude!=null?Number(b.longitude):null]);
    return json(res,201,{ok:true,item:q.rows[0]});
