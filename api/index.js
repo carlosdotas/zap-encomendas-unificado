@@ -41,14 +41,16 @@ module.exports=async function handler(req,res){
   if(origin&&new URL(origin).host!==host)return json(res,403,{error:'Origem não autorizada'});
   const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
   const rows=b.rows,allowed=new Set(['caixa_lancamentos','company','drivers','driver_tracking','locais','locations','merchandises','order_logs','orders','users','bills','clients','customers','config_cities']);
-  if(!Array.isArray(rows)||rows.length<1||rows.length>100)return json(res,400,{error:'Envie de 1 a 100 registros por lote'});
+  if(!Array.isArray(rows)||rows.length<1||rows.length>300)return json(res,400,{error:'Envie de 1 a 300 registros por lote'});
   for(let i=0;i<rows.length;i++){const r=rows[i];if(!r||!allowed.has(r.source_table)||!Number.isSafeInteger(r.source_id)||r.source_id<0||!r.payload||typeof r.payload!=='object'||Array.isArray(r.payload)||JSON.stringify(r.payload).length>30000)return json(res,400,{error:'Registro de importação inválido',index:i,source_table:r?.source_table||null,source_id:r?.source_id??null});}
-  const client=await db().connect();
-  try{
-   await client.query('BEGIN');
-   for(const r of rows)await client.query('insert into legacy_hostinger.raw_records(source_table,source_id,payload) values($1,$2,$3::jsonb) on conflict(source_table,source_id) do update set payload=excluded.payload',[r.source_table,r.source_id,JSON.stringify(r.payload)]);
-   await client.query('COMMIT');return json(res,200,{ok:true,imported:rows.length,mode:'staging'});
-  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+  const payload=JSON.stringify(rows);
+  if(Buffer.byteLength(payload,'utf8')>1500000)return json(res,413,{error:'Lote muito grande. Reduza a quantidade de registros.'});
+  const result=await db().query(`insert into legacy_hostinger.raw_records(source_table,source_id,payload)
+    select source_table,source_id,payload
+    from jsonb_to_recordset($1::jsonb) as x(source_table text,source_id bigint,payload jsonb)
+    on conflict(source_table,source_id) do update set payload=excluded.payload
+    where legacy_hostinger.raw_records.payload is distinct from excluded.payload`,[payload]);
+  return json(res,200,{ok:true,processed:rows.length,changed:result.rowCount,mode:'staging'});
  }
  if(['/api/admin/overview','/api/admin/drivers','/api/admin/carriers','/api/admin/administrators','/api/admin/orders'].includes(path)){
   const u=await session(req);if(!u)return json(res,401,{error:'Faça login'});
