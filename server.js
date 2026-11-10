@@ -12,6 +12,7 @@ const {WebSocketServer,WebSocket}=require('ws');
 const nativePush=require('./native-push');
 const {apkDownload}=require('./apk-download');
 const locationInput=require('./location-input');
+const {createFinancialRoutes}=require('./finance-payments');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -71,7 +72,8 @@ const migrations = [
   [14, ["CREATE TABLE IF NOT EXISTS zap_order_proofs (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, order_id BIGINT UNSIGNED NOT NULL, driver_id BIGINT UNSIGNED NOT NULL, action ENUM('coleta','entrega','troca') NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_order_action (order_id,action), KEY idx_proof_order (order_id), KEY idx_proof_driver (driver_id)) ENGINE=InnoDB", "CREATE TABLE IF NOT EXISTS zap_order_proof_photos (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, proof_id BIGINT UNSIGNED NOT NULL, mime_type VARCHAR(32) NOT NULL, image_data LONGBLOB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, KEY idx_proof_photo (proof_id)) ENGINE=InnoDB"]],
   [15, ["SELECT 1"]],
   [16, ["ALTER TABLE app_users ADD COLUMN city VARCHAR(80) NULL"]],
-  [17, ["CREATE TABLE IF NOT EXISTS zap_driver_presence (driver_id BIGINT UNSIGNED PRIMARY KEY, active TINYINT(1) NOT NULL DEFAULT 0, vehicle VARCHAR(24) NULL, latitude DECIMAL(10,7) NULL, longitude DECIMAL(10,7) NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, KEY idx_presence_active (active,updated_at)) ENGINE=InnoDB"]]
+  [17, ["CREATE TABLE IF NOT EXISTS zap_driver_presence (driver_id BIGINT UNSIGNED PRIMARY KEY, active TINYINT(1) NOT NULL DEFAULT 0, vehicle VARCHAR(24) NULL, latitude DECIMAL(10,7) NULL, longitude DECIMAL(10,7) NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, KEY idx_presence_active (active,updated_at)) ENGINE=InnoDB" ],
+  [18, ["CREATE TABLE IF NOT EXISTS zap_order_payments (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, order_id BIGINT UNSIGNED NOT NULL, owner_user_id BIGINT UNSIGNED NOT NULL, amount DECIMAL(14,2) NOT NULL, method VARCHAR(32) NOT NULL, received_by_user_id BIGINT UNSIGNED NOT NULL, received_by_name VARCHAR(160) NULL, paid_at DATETIME NOT NULL, idempotency_key VARCHAR(100) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_payment_idempotency (idempotency_key), KEY idx_payment_order (order_id), KEY idx_payment_owner (owner_user_id)) ENGINE=InnoDB"]]]
 ];
 
 function configured() { return Boolean(DB_CONFIG.user && DB_NAME); }
@@ -510,6 +512,7 @@ function readProofBody(req){
   req.on('error',reject);
  });
 }
+const financeRoutes=createFinancialRoutes({get pool(){return pool},getSession,sendJson,ensureDatabase,databaseReady:()=>databaseStatus.ok&&migrationStatus==='atualizado'});
 async function orderRoutes(req,res,path) {
  if(!path.startsWith('/api/orders') && path!=='/api/driver/orders') return false;
  if(!['GET','POST','PUT','DELETE'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true;}
@@ -836,7 +839,7 @@ const server = http.createServer(async (req,res) => {
   if (await driverPresenceRoutes(req,res,path)) return;
   if (await carrierDriverRoutes(req,res,path)) return;
   if (path.startsWith('/api/driver/orders/') && await orderProofRoutes(req,res,path)) return;
-  if (path.startsWith('/api/orders') || path==='/api/driver/orders') {if(await orderRoutes(req,res,path)) return;}
+  if (path.startsWith('/api/orders') || path==='/api/driver/orders') {if(await financeRoutes(req,res,path) || await orderRoutes(req,res,path)) return;}
   if (path.startsWith('/api/auth/')) {
     if(await authRoutes(req,res,path)) return;
   }
