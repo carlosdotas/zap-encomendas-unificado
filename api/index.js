@@ -30,6 +30,28 @@ module.exports=async function handler(req,res){
  const url=new URL(req.url||'/', 'https://localhost');const path=url.searchParams.has('health')?'/health':url.searchParams.has('auth')?'/api/auth/'+url.searchParams.get('auth'):url.searchParams.has('resource')?'/api/'+url.searchParams.get('resource'):url.pathname;
  try{
  if(path==='/health'){await db().query('select 1');return json(res,200,{ok:true,database:'postgresql',status:'connected'});}
+
+ if(path==='/api/financeiro'){
+  const u=await session(req);
+  if(!u)return json(res,401,{error:'Autenticação necessária'});
+  if(u.role!=='transportadora'||!u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
+  if(req.method==='GET'){
+   const r=await db().query("select id,tipo,descricao,categoria,valor,vencimento,pago_em,status,origem_sistema,created_at from zap_app.financeiro_lancamentos where transportadora_id=$1 order by id desc limit 500",[u.transportadora_id]);
+   const totals=await db().query("select tipo,status,coalesce(sum(valor),0) as total from zap_app.financeiro_lancamentos where transportadora_id=$1 group by tipo,status",[u.transportadora_id]);
+   return json(res,200,{ok:true,items:r.rows,totals:totals.rows});
+  }
+  if(req.method==='POST'){
+   const origin=req.headers.origin,host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();
+   if(origin&&new URL(origin).host!==host)return json(res,403,{error:'Origem não autorizada'});
+   const b=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
+   const tipo=b.tipo,descricao=String(b.descricao||'').trim(),categoria=String(b.categoria||'geral').trim().slice(0,100);
+   const valor=Number(b.valor),status=b.status||'pendente',vencimento=b.vencimento||null;
+   if(!['receita','despesa'].includes(tipo)||descricao.length<3||descricao.length>240||!Number.isFinite(valor)||valor<=0||valor>100000000||!['pendente','pago'].includes(status)||vencimento&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(vencimento))return json(res,400,{error:'Dados financeiros inválidos'});
+   const r=await db().query("insert into zap_app.financeiro_lancamentos(transportadora_id,tipo,descricao,categoria,valor,vencimento,status,pago_em,criado_por) values($1,$2,$3,$4,$5,$6,$7,case when $7='pago' then now() else null end,$8) returning id,tipo,descricao,categoria,valor,vencimento,status",[u.transportadora_id,tipo,descricao,categoria,valor,vencimento,status,u.id]);
+   return json(res,201,{ok:true,item:r.rows[0]});
+  }
+  return json(res,405,{error:'Método não permitido'});
+ }
  if(path==='/api/clients' || path==='/api/orders'){
   const u=await session(req);if(!u)return json(res,401,{error:'Autenticação necessária'});
   if(u.role!=='transportadora' || !u.transportadora_id)return json(res,403,{error:'Transportadora não vinculada'});
