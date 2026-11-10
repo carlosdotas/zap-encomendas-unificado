@@ -1,13 +1,13 @@
 'use strict';
 // Baixa financeira isolada do fluxo operacional; backend MySQL atual.
 // Não importa nem cobra pedidos históricos.
-function money(v){if(typeof v!=='string'&&typeof v!=='number')return null;const s=String(v).trim();if(!/^\\d{1,10}(?:\\.\\d{1,2})?$/.test(s))return null;const [a,b='']=s.split('.');const n=BigInt(a)*100n+BigInt((b+'00').slice(0,2));return n>0n&&n<=1000000000000n?n:null;}
+function money(v){if(typeof v!=='string'&&typeof v!=='number')return null;const s=String(v).trim();if(!/^\d{1,10}(?:\.\d{1,2})?$/.test(s))return null;const [a,b='']=s.split('.');const n=BigInt(a)*100n+BigInt((b+'00').slice(0,2));return n>0n&&n<=1000000000000n?n:null;}
 function format(n){return (Number(n)/100).toFixed(2);}
 function originOK(req){if(!req.headers.origin)return true;try{return new URL(req.headers.origin).host===String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim()}catch{return false}}
 function parse(req){return new Promise((resolve,reject)=>{let s='',done=false;req.on('data',b=>{if(done)return;s+=b;if(s.length>10000){done=true;reject(Error('Requisição muito grande'));req.resume()}});req.on('end',()=>{if(done)return;try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('JSON inválido'))}});req.on('error',reject)})}
 function createFinancialRoutes({pool,getSession,sendJson,ensureDatabase,databaseReady}){
  return async function financeRoutes(req,res,path){
-  const match=path.match(/^\\/api\\/finance\\/orders\\/(\\d+)\\/(?:payment|payments)$/);
+  const match=path.match(/^\/api\/finance\/orders\/(\d+)\/(?:payment|payments)$/);
   if(!match)return false;
   if(!['GET','POST'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true}
   await ensureDatabase();
@@ -29,7 +29,7 @@ function createFinancialRoutes({pool,getSession,sendJson,ensureDatabase,database
    const cents=money(body.amount),method=String(body.method||'').trim(),key=String(body.idempotencyKey||'').trim();
    if(cents===null||!['pix','dinheiro','cartao','transferencia','outro'].includes(method)||!/^[A-Za-z0-9_-]{16,100}$/.test(key)){sendJson(res,400,{error:'Informe valor positivo, forma de pagamento e idempotencyKey de 16 a 100 caracteres'});return true}
    const paidAt=body.paidAt==null?null:String(body.paidAt);
-   if(paidAt!==null&&(!/^\\d{4}-\\d{2}-\\d{2}$/.test(paidAt)||Number.isNaN(Date.parse(paidAt+'T12:00:00Z')))){sendJson(res,400,{error:'Data de pagamento inválida'});return true}
+   if(paidAt!==null&&(!/^\d{4}-\d{2}-\d{2}$/.test(paidAt)||Number.isNaN(Date.parse(paidAt+'T12:00:00Z')))){sendJson(res,400,{error:'Data de pagamento inválida'});return true}
    await conn.beginTransaction();
    const [orders]=await conn.execute('SELECT id,owner_user_id,value_items FROM zap_order_entries WHERE id=? FOR UPDATE',[id]);
    if(!orders.length||user.role!=='administrador'&&String(orders[0].owner_user_id)!==String(user.id)){await conn.rollback();sendJson(res,404,{error:'Pedido não encontrado'});return true}
