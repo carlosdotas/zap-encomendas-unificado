@@ -36,6 +36,10 @@
       "dest": "/api/auth/[action].js?action=$1"
     },
     {
+      "src": "^/api/(clients|orders)$",
+      "dest": "/api/index.js"
+    },
+    {
       "src": "^/health$",
       "dest": "/api/index.js?health=1"
     },
