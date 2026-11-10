@@ -32,6 +32,34 @@ module.exports=async function handler(req,res){
  if(path==='/health'){await db().query('select 1');return json(res,200,{ok:true,database:'postgresql',status:'connected'});}
 
 
+
+ if(['/api/admin/overview','/api/admin/drivers','/api/admin/carriers','/api/admin/administrators','/api/admin/orders'].includes(path)){
+  const u=await session(req);if(!u)return json(res,401,{error:'Faça login'});
+  if(u.role!=='administrador')return json(res,403,{error:'Acesso restrito'});
+  if(req.method!=='GET')return json(res,405,{error:'Método não permitido'});
+  if(path==='/api/admin/overview'){
+   const users=await db().query("select role,count(*)::int as count from zap_app.app_users group by role");
+   const orders=await db().query("select count(*)::int as total from zap_app.zap_order_entries");
+   const carriers=await db().query("select count(*)::int as total from zap_app.transportadoras");
+   const roles=Object.fromEntries(users.rows.map(r=>[r.role,r.count]));roles.transportadora=carriers.rows[0].total;
+   return json(res,200,{ok:true,users:roles,orders:{total:orders.rows[0].total,byStatus:{}},recentOrders:[]});
+  }
+  const page=Math.max(1,Math.min(10000,parseInt(url.searchParams.get('page'),10)||1)),limit=25,term=String(url.searchParams.get('search')||'').slice(0,100);
+  const pattern='%'+term.replace(/[\\%_]/g,'\\ if(path==='/api/admin/transportadoras'||path==='/api/admin/reset-password'){')+'%';
+  if(path==='/api/admin/orders'){
+   const count=await db().query("select count(*)::int as total from zap_app.zap_order_entries");
+   return json(res,200,{ok:true,items:[],total:count.rows[0].total,limit});
+  }
+  const isCarriers=path==='/api/admin/carriers';
+  const role=path==='/api/admin/drivers'?'motorista':isCarriers?'transportadora':'administrador';
+  const from=isCarriers?"zap_app.transportadoras t left join zap_app.app_users u on u.id=t.usuario_principal_id":"zap_app.app_users u";
+  const where=isCarriers?"where (t.nome ilike $1 or coalesce(u.phone,'') ilike $1)":"where u.role=$3 and (u.full_name ilike $1 or u.phone ilike $1)";
+  const params=isCarriers?[pattern, (page-1)*limit]:[pattern,(page-1)*limit,role];
+  const count=await db().query("select count(*)::int as total from "+from+" "+where,params.filter((_,i)=>i!==1));
+  const fields=isCarriers?"t.id,t.nome as full_name,u.phone,u.id as usuario_id,t.created_at, '' as vehicles":"u.id,u.full_name,u.phone,u.vehicles,u.created_at";
+  const rows=await db().query("select "+fields+" from "+from+" "+where+" order by "+(isCarriers?'t.id':'u.id')+" desc limit 25 offset $2",params);
+  return json(res,200,{ok:true,items:rows.rows,total:count.rows[0].total,limit});
+ }
  if(path==='/api/admin/transportadoras'||path==='/api/admin/reset-password'){
   const u=await session(req);
   if(!u)return json(res,401,{error:'Faça login como administrador'});
