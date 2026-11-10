@@ -32,6 +32,10 @@
   ],
   "routes": [
     {
+      "src": "^/api/admin/audit-orders$",
+      "dest": "/api/index.js?admin=audit-orders"
+    },
+    {
       "src": "^/api/admin/import-legacy$",
       "dest": "/api/index.js?admin=import-legacy"
     },
