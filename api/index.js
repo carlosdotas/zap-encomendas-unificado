@@ -33,6 +33,41 @@ module.exports=async function handler(req,res){
 
 
 
+ if(path==='/api/admin/audit-orders'){
+  const u=await session(req);if(!u)return json(res,401,{error:'Faça login'});
+  if(u.role!=='administrador')return json(res,403,{error:'Acesso restrito'});
+  if(!['GET','POST'].includes(req.method))return json(res,405,{error:'Método não permitido'});
+  if(req.method==='POST'){
+   const origin=req.headers.origin,host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();
+   if(origin&&new URL(origin).host!==host)return json(res,403,{error:'Origem não autorizada'});
+   const body=typeof req.body==='object'&&req.body?req.body:JSON.parse(String(req.body||'{}'));
+   if(body.confirm!=='CORRIGIR_PEDIDOS')return json(res,400,{error:'Confirmação obrigatória'});
+  }
+  const client=await db().connect();
+  try{
+   if(req.method==='POST')await client.query('begin');
+   const stats=await client.query(`select count(*)::int total,
+     count(*) filter(where o.order_date is distinct from nullif(r.payload->>'date','')::date)::int datas_divergentes,
+     count(*) filter(where o.legacy_client_id is null and c.legacy_client_id is not null)::int vinculos_pendentes,
+     count(*) filter(where o.legacy_client_id is not null and c.legacy_client_id is not null and o.legacy_client_id<>c.legacy_client_id)::int vinculos_divergentes,
+     count(*) filter(where nullif(r.payload->>'date','')::date>'2026-03-10')::int posteriores_10_marco,
+     max(nullif(r.payload->>'date','')::date) ultima_data_origem
+     from zap_app.zap_order_entries o join legacy_hostinger.raw_records r on r.source_table='orders' and r.source_id=o.legacy_order_id
+     left join zap_app.legacy_clients c on c.legacy_client_id::text=r.payload->>'client_id'`);
+   let corrected={datas:0,vinculos:0};
+   if(req.method==='POST'){
+    const d=await client.query(`update zap_app.zap_order_entries o set order_date=nullif(r.payload->>'date','')::date
+      from legacy_hostinger.raw_records r where r.source_table='orders' and r.source_id=o.legacy_order_id
+      and nullif(r.payload->>'date','') is not null and o.order_date is distinct from (r.payload->>'date')::date`);
+    const c=await client.query(`update zap_app.zap_order_entries o set legacy_client_id=l.legacy_client_id
+      from legacy_hostinger.raw_records r join zap_app.legacy_clients l on l.legacy_client_id::text=r.payload->>'client_id'
+      where r.source_table='orders' and r.source_id=o.legacy_order_id and o.legacy_client_id is distinct from l.legacy_client_id`);
+    corrected={datas:d.rowCount,vinculos:c.rowCount};
+    await client.query('commit');
+   }
+   return json(res,200,{ok:true,mode:req.method==='POST'?'correcao':'diagnostico',...stats.rows[0],corrected,notice:'Somente datas originais e vinculos comprovados por ID sao corrigidos. Outros campos exigem revisao.'});
+  }catch(e){if(req.method==='POST')await client.query('rollback');throw e}finally{client.release()}
+ }
  if(path==='/api/admin/import-legacy'||(path==='/api/admin/overview'&&url.searchParams.get('migration')==='1')){
   const u=await session(req);if(!u)return json(res,401,{error:'Faça login'});
   if(u.role!=='administrador')return json(res,403,{error:'Acesso restrito'});
