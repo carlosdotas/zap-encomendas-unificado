@@ -512,7 +512,7 @@ function readProofBody(req){
   req.on('error',reject);
  });
 }
-const financeRoutes=createFinancialRoutes({get pool(){return pool},getSession,sendJson,ensureDatabase,databaseReady:()=>databaseStatus.ok&&migrationStatus==='atualizado'});
+const financeRoutes=createFinancialRoutes({getPool:()=>pool,getSession,sendJson,ensureDatabase,databaseReady:()=>databaseStatus.ok&&migrationStatus==='atualizado'});
 async function orderRoutes(req,res,path) {
  if(!path.startsWith('/api/orders') && path!=='/api/driver/orders') return false;
  if(!['GET','POST','PUT','DELETE'].includes(req.method)){sendJson(res,405,{error:'Método não permitido'});return true;}
